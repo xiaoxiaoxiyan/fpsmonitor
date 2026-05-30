@@ -1,17 +1,19 @@
-- [ ] 主页 UI 照抄 KernelSU 最新版本风格，无 Root 显示红色叉号，有 Root 显示绿色勾号 + MIUI X 风格状态卡片
-- [ ] 授权卡片正确显示 Root 方式（KernelSU/Magisk/APatch）、版本号、工作状态
-- [ ] RootMethod 检测逻辑支持 KernelSU/Magisk/APatch 三种方案识别
+- [ ] MIUI X UI 框架集成完成，MiuixTheme 替换 Material3
+- [ ] MIUI X 风格底部导航栏正常工作
+- [ ] 主页 UI 照抄 KernelSU v4.0+（SukiSU-Ultra）风格，无 Root 显示红色叉号，有 Root 显示绿色勾号 + MIUI X 卡片
+- [ ] 授权卡片正确显示 Root 方式（KernelSU/KernelSU-Next/SukiSU-Ultra/Magisk/APatch）、版本号、工作状态、suCompat 状态
+- [ ] RootMethod 检测逻辑支持 KSU 系列/Magisk/APatch 识别及版本获取
 - [ ] 脚本模块可从云端下载脚本列表并缓存到本地
 - [ ] 脚本模块可选择执行脚本并实时显示输出
-- [ ] SUWebUI 可正常加载模块的 WebUI 页面
-- [ ] 文件管理器双栏布局正常工作，左右可独立导航
+- [ ] SUWebUI X 可正常加载模块的 WebUI 页面，支持 Native 桥接
+- [ ] 文件管理器双栏布局正常工作，左右可独立导航，MIUI X 风格
 - [ ] 文件管理器支持复制/移动/删除/重命名/新建文件夹操作
 - [ ] 文件管理器支持 ZIP 压缩和解压
 - [ ] 文件管理器支持 Root 文件系统访问
-- [ ] 终端支持多会话管理（新建/切换/关闭）
+- [ ] 终端支持多会话管理（新建/切换/关闭），MIUI X 风格
 - [ ] 终端 ANSI 颜色正确解析显示
-- [ ] MoreScreen 仅显示有开源项目支撑的功能项（7个）
-- [ ] MoreScreen 功能卡片文字完整显示，不被截断
+- [ ] MoreScreen 仅显示 7 个有开源项目支撑的功能项
+- [ ] MoreScreen 使用 MIUI X 列表风格，文字完整显示不被截断
 - [ ] AK3 内核刷写功能页面可正常使用
 - [ ] 分区备份/恢复功能页面可正常使用
 - [ ] 过检测工具箱功能页面可正常使用（PIF + TrickyStore 配置）
