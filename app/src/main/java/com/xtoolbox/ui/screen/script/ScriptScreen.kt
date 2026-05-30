@@ -1,6 +1,7 @@
 package com.xtoolbox.ui.screen.script
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -11,23 +12,19 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -37,8 +34,10 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import top.yukonga.miuix.kmp.basic.Card
+import top.yukonga.miuix.kmp.basic.Text
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ScriptScreen(viewModel: ScriptViewModel = viewModel()) {
     val uiState by viewModel.uiState.collectAsState()
@@ -55,7 +54,7 @@ fun ScriptScreen(viewModel: ScriptViewModel = viewModel()) {
         ) {
             Text(
                 text = "XToolbox 脚本",
-                style = MaterialTheme.typography.headlineMedium,
+                style = MiuixTheme.textStyles.headline.medium,
                 fontWeight = FontWeight.Bold
             )
             Row {
@@ -93,8 +92,8 @@ fun ScriptScreen(viewModel: ScriptViewModel = viewModel()) {
             ) {
                 Text(
                     text = "暂无脚本",
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    style = MiuixTheme.textStyles.body.large,
+                    color = MiuixTheme.colorScheme.onSurfaceVariant
                 )
                 Spacer(modifier = Modifier.height(8.dp))
                 Button(onClick = { viewModel.loadScripts() }) {
@@ -124,10 +123,7 @@ fun ScriptScreen(viewModel: ScriptViewModel = viewModel()) {
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(16.dp)
-                    .height(200.dp),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceVariant
-                )
+                    .height(200.dp)
             ) {
                 Column(
                     modifier = Modifier
@@ -141,7 +137,7 @@ fun ScriptScreen(viewModel: ScriptViewModel = viewModel()) {
                     ) {
                         Text(
                             text = "输出",
-                            style = MaterialTheme.typography.labelLarge
+                            style = MiuixTheme.textStyles.label.large
                         )
                         OutlinedButton(
                             onClick = { viewModel.clearOutput() }
@@ -149,14 +145,14 @@ fun ScriptScreen(viewModel: ScriptViewModel = viewModel()) {
                             Text("清除")
                         }
                     }
-                    androidx.compose.foundation.layout.Box(
+                    Box(
                         modifier = Modifier
                             .fillMaxSize()
                             .verticalScroll(rememberScrollState())
                     ) {
                         Text(
                             text = uiState.executionOutput.joinToString("\n"),
-                            style = MaterialTheme.typography.bodySmall,
+                            style = MiuixTheme.textStyles.body.small,
                             fontFamily = FontFamily.Monospace
                         )
                     }
@@ -185,7 +181,7 @@ private fun ScriptCard(
             Icon(
                 imageVector = Icons.Filled.Description,
                 contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary,
+                tint = MiuixTheme.colorScheme.primary,
                 modifier = Modifier.size(36.dp)
             )
             Spacer(modifier = Modifier.size(12.dp))
@@ -194,7 +190,7 @@ private fun ScriptCard(
             ) {
                 Text(
                     text = script.name,
-                    style = MaterialTheme.typography.titleSmall,
+                    style = MiuixTheme.textStyles.title.small,
                     fontWeight = FontWeight.Medium
                 )
                 Spacer(modifier = Modifier.height(2.dp))
@@ -202,27 +198,27 @@ private fun ScriptCard(
                     if (script.size > 0) {
                         Text(
                             text = formatSize(script.size),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            style = MiuixTheme.textStyles.body.small,
+                            color = MiuixTheme.colorScheme.onSurfaceVariant
                         )
                         Text(
                             text = " | ",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            style = MiuixTheme.textStyles.body.small,
+                            color = MiuixTheme.colorScheme.onSurfaceVariant
                         )
                     }
                     if (script.lastModified.isNotEmpty()) {
                         Text(
                             text = "更新: ${script.lastModified}",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            style = MiuixTheme.textStyles.body.small,
+                            color = MiuixTheme.colorScheme.onSurfaceVariant
                         )
                     }
                     if (!script.isDownloaded) {
                         Text(
                             text = " | 未下载",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.error
+                            style = MiuixTheme.textStyles.body.small,
+                            color = MiuixTheme.colorScheme.error
                         )
                     }
                 }
@@ -257,12 +253,4 @@ private fun formatSize(bytes: Long): String {
         bytes >= 1024 -> "${bytes / 1024}KB"
         else -> "${bytes}B"
     }
-}
-
-private fun Modifier.verticalScroll(state: androidx.compose.foundation.ScrollState): Modifier {
-    return this.then(androidx.compose.foundation.verticalScroll(state))
-}
-
-private fun rememberScrollState(): androidx.compose.foundation.ScrollState {
-    return androidx.compose.foundation.rememberScrollState()
 }

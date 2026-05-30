@@ -14,18 +14,11 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.Error
-import androidx.compose.material3.Button
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -34,8 +27,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import top.yukonga.miuix.kmp.basic.Card
+import top.yukonga.miuix.kmp.basic.Text
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(viewModel: HomeViewModel = viewModel()) {
     val uiState by viewModel.uiState.collectAsState()
@@ -48,17 +43,17 @@ fun HomeScreen(viewModel: HomeViewModel = viewModel()) {
     ) {
         Text(
             text = "XToolbox",
-            style = MaterialTheme.typography.headlineLarge,
+            style = MiuixTheme.textStyles.headline.large,
             fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.primary
+            color = MiuixTheme.colorScheme.primary
         )
 
         Spacer(modifier = Modifier.height(4.dp))
 
         Text(
             text = "v1.0.0",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
+            style = MiuixTheme.textStyles.body.secondary,
+            color = MiuixTheme.colorScheme.onSurfaceVariant
         )
 
         Spacer(modifier = Modifier.height(20.dp))
@@ -71,6 +66,12 @@ fun HomeScreen(viewModel: HomeViewModel = viewModel()) {
             StatusCard(uiState)
 
             Spacer(modifier = Modifier.height(16.dp))
+
+            if (uiState.isRooted) {
+                AuthCard(uiState)
+
+                Spacer(modifier = Modifier.height(16.dp))
+            }
 
             QuickActionsCard(
                 isRooted = uiState.isRooted,
@@ -90,13 +91,7 @@ fun HomeScreen(viewModel: HomeViewModel = viewModel()) {
 @Composable
 private fun StatusCard(state: HomeUiState) {
     Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = if (state.isRooted)
-                MaterialTheme.colorScheme.primaryContainer
-            else
-                MaterialTheme.colorScheme.errorContainer
-        )
+        modifier = Modifier.fillMaxWidth()
     ) {
         Column(
             modifier = Modifier.padding(20.dp)
@@ -105,41 +100,73 @@ private fun StatusCard(state: HomeUiState) {
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Icon(
-                    imageVector = if (state.isRooted) Icons.Filled.CheckCircle else Icons.Filled.Error,
+                    imageVector = if (state.isRooted) Icons.Filled.CheckCircle else Icons.Filled.Close,
                     contentDescription = null,
                     tint = if (state.isRooted)
-                        MaterialTheme.colorScheme.primary
+                        MiuixTheme.colorScheme.primary
                     else
-                        MaterialTheme.colorScheme.error,
-                    modifier = Modifier.size(28.dp)
+                        MiuixTheme.colorScheme.error,
+                    modifier = Modifier.size(32.dp)
                 )
                 Spacer(modifier = Modifier.width(12.dp))
                 Text(
                     text = if (state.isRooted) "已 Root" else "未 Root",
-                    style = MaterialTheme.typography.titleLarge,
+                    style = MiuixTheme.textStyles.title.large,
                     fontWeight = FontWeight.Bold,
                     color = if (state.isRooted)
-                        MaterialTheme.colorScheme.onPrimaryContainer
+                        MiuixTheme.colorScheme.primary
                     else
-                        MaterialTheme.colorScheme.onErrorContainer
+                        MiuixTheme.colorScheme.error
                 )
             }
 
             if (state.isRooted) {
                 Spacer(modifier = Modifier.height(16.dp))
-
                 InfoRow("Root 方式", state.rootMethod)
+                if (state.rootMethodVersion.isNotBlank()) {
+                    InfoRow("版本", state.rootMethodVersion)
+                }
                 InfoRow("工作模式", state.workMode)
                 InfoRow("内核版本", state.kernelVersion)
                 InfoRow("Android", "${state.androidVersion} (API ${state.apiLevel})")
                 InfoRow("安全补丁", state.securityPatch)
+                if (state.susfsStatus != "不可用") {
+                    InfoRow("SuSFS", state.susfsStatus)
+                }
             } else {
                 Spacer(modifier = Modifier.height(12.dp))
                 Text(
                     text = "未检测到 Root 权限，部分功能不可用",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onErrorContainer
+                    style = MiuixTheme.textStyles.body.secondary,
+                    color = MiuixTheme.colorScheme.error
                 )
+            }
+        }
+    }
+}
+
+@Composable
+private fun AuthCard(state: HomeUiState) {
+    Card(
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(
+            modifier = Modifier.padding(20.dp)
+        ) {
+            Text(
+                text = "授权信息",
+                style = MiuixTheme.textStyles.title.medium,
+                fontWeight = FontWeight.SemiBold,
+                color = MiuixTheme.colorScheme.onSurface
+            )
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            InfoRow("授权方式", state.rootMethod)
+            InfoRow("工作状态", "正常")
+            InfoRow("SuperUser 数量", "${state.superUserCount}")
+            if (state.suCompatStatus != "不可用") {
+                InfoRow("suCompat", state.suCompatStatus)
             }
         }
     }
@@ -155,14 +182,14 @@ private fun InfoRow(label: String, value: String) {
     ) {
         Text(
             text = label,
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
+            style = MiuixTheme.textStyles.body.secondary,
+            color = MiuixTheme.colorScheme.onSurfaceVariant
         )
         Text(
             text = value,
-            style = MaterialTheme.typography.bodyMedium,
+            style = MiuixTheme.textStyles.body.secondary,
             fontWeight = FontWeight.Medium,
-            color = MaterialTheme.colorScheme.onPrimaryContainer
+            color = MiuixTheme.colorScheme.onSurface
         )
     }
 }
@@ -176,19 +203,16 @@ private fun QuickActionsCard(
     onRebootBootloader: () -> Unit
 ) {
     Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant
-        )
+        modifier = Modifier.fillMaxWidth()
     ) {
         Column(
             modifier = Modifier.padding(20.dp)
         ) {
             Text(
                 text = "快捷操作",
-                style = MaterialTheme.typography.titleMedium,
+                style = MiuixTheme.textStyles.title.medium,
                 fontWeight = FontWeight.SemiBold,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = MiuixTheme.colorScheme.onSurface
             )
 
             Spacer(modifier = Modifier.height(12.dp))
@@ -202,7 +226,7 @@ private fun QuickActionsCard(
                     enabled = isRooted,
                     modifier = Modifier.weight(1f),
                     colors = ButtonDefaults.outlinedButtonColors(
-                        contentColor = MaterialTheme.colorScheme.error
+                        contentColor = MiuixTheme.colorScheme.error
                     )
                 ) {
                     Text("重启")
@@ -251,36 +275,16 @@ private fun DeviceInfoCard(state: HomeUiState) {
         ) {
             Text(
                 text = "设备信息",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold
+                style = MiuixTheme.textStyles.title.medium,
+                fontWeight = FontWeight.SemiBold,
+                color = MiuixTheme.colorScheme.onSurface
             )
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            DeviceInfoRow("设备", state.deviceModel)
-            DeviceInfoRow("CPU", state.cpuInfo)
-            DeviceInfoRow("RAM", state.ramSize)
+            InfoRow("设备", state.deviceModel)
+            InfoRow("CPU", state.cpuInfo)
+            InfoRow("RAM", state.ramSize)
         }
-    }
-}
-
-@Composable
-private fun DeviceInfoRow(label: String, value: String) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 4.dp),
-        horizontalArrangement = Arrangement.SpaceBetween
-    ) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
-        )
-        Text(
-            text = value,
-            style = MaterialTheme.typography.bodyMedium,
-            fontWeight = FontWeight.Medium
-        )
     }
 }

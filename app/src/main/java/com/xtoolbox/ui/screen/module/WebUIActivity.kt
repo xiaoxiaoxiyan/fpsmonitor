@@ -13,6 +13,7 @@ import com.topjohnwu.superuser.libsu.ShellUtils
 
 class WebUIActivity : ComponentActivity() {
     private lateinit var webView: WebView
+    private var moduleId: String = ""
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -22,6 +23,7 @@ class WebUIActivity : ComponentActivity() {
             finish()
             return
         }
+        moduleId = intent.getStringExtra("module_id") ?: ""
 
         if (!webUIPath.startsWith("/data/adb/modules/")) {
             finish()
@@ -34,22 +36,19 @@ class WebUIActivity : ComponentActivity() {
         webView.settings.apply {
             javaScriptEnabled = true
             domStorageEnabled = true
-            allowFileAccess = false
-            allowFileAccessFromFileURLs = false
-            allowUniversalAccessFromFileURLs = false
-            mixedContentMode = WebSettings.MIXED_CONTENT_NEVER_ALLOW
+            allowFileAccess = true
+            allowFileAccessFromFileURLs = true
+            allowUniversalAccessFromFileURLs = true
+            mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
             cacheMode = WebSettings.LOAD_DEFAULT
             setSupportZoom(false)
             savePassword = false
             saveFormData = false
         }
 
-        webView.addJavascriptInterface(KsuBridge(), "ksu")
+        webView.addJavascriptInterface(KsuWebUIXBridge(), "ksu")
         webView.webViewClient = object : WebViewClient() {
             override fun shouldOverrideUrlLoading(view: WebView?, url: String?): Boolean {
-                if (url != null && !url.startsWith("file:///data/adb/modules/")) {
-                    return true
-                }
                 return false
             }
         }
@@ -71,7 +70,7 @@ class WebUIActivity : ComponentActivity() {
         }
     }
 
-    inner class KsuBridge {
+    inner class KsuWebUIXBridge {
         @JavascriptInterface
         fun exec(command: String): String {
             val result = Shell.cmd(command).exec()
@@ -83,6 +82,27 @@ class WebUIActivity : ComponentActivity() {
             runOnUiThread {
                 android.widget.Toast.makeText(this@WebUIActivity, message, android.widget.Toast.LENGTH_SHORT).show()
             }
+        }
+
+        @JavascriptInterface
+        fun getModuleId(): String = moduleId
+
+        @JavascriptInterface
+        fun getModuleDir(): String {
+            val webUIPath = intent.getStringExtra("webui_path") ?: ""
+            val segments = webUIPath.split("/")
+            val modulesIndex = segments.indexOf("modules")
+            return if (modulesIndex >= 0 && modulesIndex + 1 < segments.size) {
+                "/data/adb/modules/${segments[modulesIndex + 1]}"
+            } else ""
+        }
+
+        @JavascriptInterface
+        fun execAsRoot(command: String): String {
+            val shell = Shell.getShell()
+            if (!shell.isRoot) return "ERROR: No root access"
+            val result = Shell.cmd(command).exec()
+            return result.out.joinToString("\n")
         }
     }
 }

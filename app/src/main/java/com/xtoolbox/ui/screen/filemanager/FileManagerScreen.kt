@@ -21,20 +21,12 @@ import androidx.compose.material.icons.filled.FileCopy
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.InsertDriveFile
 import androidx.compose.material.icons.filled.SwapHoriz
-import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontFamily
@@ -42,77 +34,149 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.xtoolbox.core.file.ApkSigner
 import com.xtoolbox.core.file.FileItem
+import top.yukonga.miuix.kmp.basic.Card
+import top.yukonga.miuix.kmp.theme.MiuixTheme
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Text
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun FileManagerScreen(viewModel: FileManagerViewModel = viewModel()) {
     val uiState by viewModel.uiState.collectAsState()
+    var selectedFiles by remember { mutableStateOf(setOf<String>()) }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("文件管理", fontWeight = FontWeight.Bold) }
-            )
-        },
-        bottomBar = {
-            FileOperationBar(
-                onCopy = { /* TODO: copy selected */ },
-                onMove = { /* TODO: move selected */ },
-                onDelete = { /* TODO: delete selected */ },
-                onCompress = { /* TODO: compress selected */ },
-                onExtract = { /* TODO: extract selected */ },
-                onNewFolder = { /* TODO: create new folder */ },
-                onPaste = { viewModel.pasteToActivePane() },
-                hasClipboard = uiState.clipboard != null
-            )
-        }
-    ) { padding ->
-        Column(
+    Column(
+        modifier = Modifier.fillMaxSize()
+    ) {
+        Row(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(padding)
+                .weight(1f)
         ) {
-            Row(
+            FilePane(
+                path = uiState.leftPath,
+                files = uiState.leftFiles,
+                isActive = uiState.activePane == Pane.LEFT,
+                selectedFiles = selectedFiles,
+                onFileClick = { file ->
+                    if (file.isDirectory) {
+                        viewModel.navigateTo(Pane.LEFT, file.path)
+                    } else {
+                        selectedFiles = if (file.path in selectedFiles) {
+                            selectedFiles - file.path
+                        } else {
+                            selectedFiles + file.path
+                        }
+                    }
+                },
+                onFileLongClick = { file ->
+                    selectedFiles = if (file.path in selectedFiles) {
+                        selectedFiles - file.path
+                    } else {
+                        selectedFiles + file.path
+                    }
+                },
+                onNavigateUp = { viewModel.navigateUp(Pane.LEFT) },
+                onActivate = {
+                    viewModel.setActivePane(Pane.LEFT)
+                    selectedFiles = emptySet()
+                },
+                modifier = Modifier.weight(1f)
+            )
+
+            Spacer(
                 modifier = Modifier
+                    .width(1.dp)
                     .fillMaxSize()
-                    .weight(1f)
-            ) {
-                FilePane(
-                    path = uiState.leftPath,
-                    files = uiState.leftFiles,
-                    isActive = uiState.activePane == Pane.LEFT,
-                    onFileClick = { file ->
-                        if (file.isDirectory) {
-                            viewModel.navigateTo(Pane.LEFT, file.path)
-                        }
-                    },
-                    onNavigateUp = { viewModel.navigateUp(Pane.LEFT) },
-                    onActivate = { viewModel.setActivePane(Pane.LEFT) },
-                    modifier = Modifier.weight(1f)
-                )
+            )
 
-                Spacer(
-                    modifier = Modifier
-                        .width(1.dp)
-                        .fillMaxSize()
-                )
-
-                FilePane(
-                    path = uiState.rightPath,
-                    files = uiState.rightFiles,
-                    isActive = uiState.activePane == Pane.RIGHT,
-                    onFileClick = { file ->
-                        if (file.isDirectory) {
-                            viewModel.navigateTo(Pane.RIGHT, file.path)
+            FilePane(
+                path = uiState.rightPath,
+                files = uiState.rightFiles,
+                isActive = uiState.activePane == Pane.RIGHT,
+                selectedFiles = selectedFiles,
+                onFileClick = { file ->
+                    if (file.isDirectory) {
+                        viewModel.navigateTo(Pane.RIGHT, file.path)
+                    } else {
+                        selectedFiles = if (file.path in selectedFiles) {
+                            selectedFiles - file.path
+                        } else {
+                            selectedFiles + file.path
                         }
-                    },
-                    onNavigateUp = { viewModel.navigateUp(Pane.RIGHT) },
-                    onActivate = { viewModel.setActivePane(Pane.RIGHT) },
-                    modifier = Modifier.weight(1f)
-                )
-            }
+                    }
+                },
+                onFileLongClick = { file ->
+                    selectedFiles = if (file.path in selectedFiles) {
+                        selectedFiles - file.path
+                    } else {
+                        selectedFiles + file.path
+                    }
+                },
+                onNavigateUp = { viewModel.navigateUp(Pane.RIGHT) },
+                onActivate = {
+                    viewModel.setActivePane(Pane.RIGHT)
+                    selectedFiles = emptySet()
+                },
+                modifier = Modifier.weight(1f)
+            )
         }
+
+        FileOperationBar(
+            onCopy = {
+                if (selectedFiles.isNotEmpty()) {
+                    viewModel.copyFiles(selectedFiles.toList())
+                    selectedFiles = emptySet()
+                }
+            },
+            onMove = {
+                if (selectedFiles.isNotEmpty()) {
+                    viewModel.moveFiles(selectedFiles.toList())
+                    selectedFiles = emptySet()
+                }
+            },
+            onDelete = {
+                if (selectedFiles.isNotEmpty()) {
+                    viewModel.deleteFiles(selectedFiles.toList())
+                    selectedFiles = emptySet()
+                }
+            },
+            onCompress = {
+                if (selectedFiles.isNotEmpty()) {
+                    val activePath = if (uiState.activePane == Pane.LEFT) uiState.leftPath else uiState.rightPath
+                    viewModel.compressFiles(selectedFiles.toList(), "$activePath/archive.zip")
+                    selectedFiles = emptySet()
+                }
+            },
+            onExtract = {
+                val zipFiles = selectedFiles.filter {
+                    it.lowercase().endsWith(".zip") || it.lowercase().endsWith(".tar.gz") || it.lowercase().endsWith(".tar")
+                }
+                val activePath = if (uiState.activePane == Pane.LEFT) uiState.leftPath else uiState.rightPath
+                for (zip in zipFiles) {
+                    viewModel.extractArchive(zip, activePath)
+                }
+                selectedFiles = emptySet()
+            },
+            onNewFolder = {
+                val activePath = if (uiState.activePane == Pane.LEFT) uiState.leftPath else uiState.rightPath
+                viewModel.createDirectory("$activePath/new_folder")
+            },
+            onPaste = { viewModel.pasteToActivePane() },
+            hasClipboard = uiState.clipboard != null,
+            onSignApk = {
+                val apkFiles = selectedFiles.filter { it.lowercase().endsWith(".apk") }
+                for (apk in apkFiles) {
+                    val activePath = if (uiState.activePane == Pane.LEFT) uiState.leftPath else uiState.rightPath
+                    ApkSigner.signApk(apk, activePath)
+                }
+                selectedFiles = emptySet()
+            },
+            selectedFiles = selectedFiles
+        )
     }
 }
 
@@ -121,7 +185,9 @@ private fun FilePane(
     path: String,
     files: List<FileItem>,
     isActive: Boolean,
+    selectedFiles: Set<String>,
     onFileClick: (FileItem) -> Unit,
+    onFileLongClick: (FileItem) -> Unit,
     onNavigateUp: () -> Unit,
     onActivate: () -> Unit,
     modifier: Modifier = Modifier
@@ -146,13 +212,13 @@ private fun FilePane(
             }
             Text(
                 text = path,
-                style = MaterialTheme.typography.labelSmall,
+                style = MiuixTheme.textStyles.label.small,
                 fontFamily = FontFamily.Monospace,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.weight(1f),
-                color = if (isActive) MaterialTheme.colorScheme.primary
-                else MaterialTheme.colorScheme.onSurfaceVariant
+                color = if (isActive) MiuixTheme.colorScheme.primary
+                else MiuixTheme.colorScheme.onSurfaceVariant
             )
         }
 
@@ -162,7 +228,9 @@ private fun FilePane(
             items(files, key = { it.path }) { file ->
                 FileRow(
                     file = file,
-                    onClick = { onFileClick(file) }
+                    isSelected = file.path in selectedFiles,
+                    onClick = { onFileClick(file) },
+                    onLongClick = { onFileLongClick(file) }
                 )
             }
         }
@@ -170,35 +238,64 @@ private fun FilePane(
 }
 
 @Composable
-private fun FileRow(file: FileItem, onClick: () -> Unit) {
-    Row(
+private fun FileRow(
+    file: FileItem,
+    isSelected: Boolean,
+    onClick: () -> Unit,
+    onLongClick: () -> Unit
+) {
+    Card(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .padding(horizontal = 8.dp, vertical = 4.dp),
-        verticalAlignment = Alignment.CenterVertically
+            .padding(horizontal = 4.dp, vertical = 1.dp)
     ) {
-        Icon(
-            imageVector = if (file.isDirectory) Icons.Filled.Folder else Icons.Filled.InsertDriveFile,
-            contentDescription = null,
-            tint = if (file.isDirectory) MaterialTheme.colorScheme.primary
-            else MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.size(20.dp)
-        )
-        Spacer(modifier = Modifier.width(8.dp))
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = file.name,
-                style = MaterialTheme.typography.bodySmall,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable(onClick = onClick, onLongClick = onLongClick)
+                .padding(horizontal = 8.dp, vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                imageVector = if (file.isDirectory) Icons.Filled.Folder else Icons.Filled.InsertDriveFile,
+                contentDescription = null,
+                tint = when {
+                    isSelected -> MiuixTheme.colorScheme.primary
+                    file.isDirectory -> MiuixTheme.colorScheme.primary
+                    else -> MiuixTheme.colorScheme.onSurfaceVariant
+                },
+                modifier = Modifier.size(20.dp)
             )
-            if (!file.isDirectory) {
+            Spacer(modifier = Modifier.width(8.dp))
+            Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = formatFileSize(file.size),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    text = file.name,
+                    style = MiuixTheme.textStyles.body.small,
+                    fontWeight = if (isSelected) FontWeight.Medium else FontWeight.Normal,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    color = if (isSelected) MiuixTheme.colorScheme.primary
+                    else MiuixTheme.colorScheme.onSurface
                 )
+                if (!file.isDirectory) {
+                    Text(
+                        text = formatFileSize(file.size),
+                        style = MiuixTheme.textStyles.label.small,
+                        color = MiuixTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+            if (file.name.lowercase().endsWith(".apk")) {
+                OutlinedButton(
+                    onClick = { },
+                    modifier = Modifier.height(28.dp),
+                    contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 8.dp)
+                ) {
+                    Text(
+                        text = "重签名",
+                        style = MiuixTheme.textStyles.label.small
+                    )
+                }
             }
         }
     }
@@ -213,13 +310,12 @@ private fun FileOperationBar(
     onExtract: () -> Unit,
     onNewFolder: () -> Unit,
     onPaste: () -> Unit,
-    hasClipboard: Boolean
+    hasClipboard: Boolean,
+    onSignApk: () -> Unit = {},
+    selectedFiles: Set<String> = emptySet()
 ) {
     Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant
-        )
+        modifier = Modifier.fillMaxWidth()
     ) {
         Row(
             modifier = Modifier
@@ -237,14 +333,25 @@ private fun FileOperationBar(
                 Icon(Icons.Filled.Delete, contentDescription = "删除", modifier = Modifier.size(20.dp))
             }
             IconButton(onClick = onCompress, modifier = Modifier.size(40.dp)) {
-                Text("ZIP", style = MaterialTheme.typography.labelSmall)
+                Text("ZIP", style = MiuixTheme.textStyles.label.small)
+            }
+            IconButton(onClick = onExtract, modifier = Modifier.size(40.dp)) {
+                Text("解压", style = MiuixTheme.textStyles.label.small)
             }
             IconButton(onClick = onNewFolder, modifier = Modifier.size(40.dp)) {
                 Icon(Icons.Filled.CreateNewFolder, contentDescription = "新建", modifier = Modifier.size(20.dp))
             }
+            if (selectedFiles.any { it.lowercase().endsWith(".apk") }) {
+                IconButton(onClick = onSignApk, modifier = Modifier.size(40.dp)) {
+                    Text("签名", style = MiuixTheme.textStyles.label.small)
+                }
+            }
             if (hasClipboard) {
-                Button(onClick = onPaste, modifier = Modifier.height(36.dp)) {
-                    Text("粘贴", style = MaterialTheme.typography.labelSmall)
+                OutlinedButton(
+                    onClick = onPaste,
+                    modifier = Modifier.height(36.dp)
+                ) {
+                    Text("粘贴", style = MiuixTheme.textStyles.label.small)
                 }
             }
         }

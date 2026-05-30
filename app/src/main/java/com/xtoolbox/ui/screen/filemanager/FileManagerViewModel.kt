@@ -102,7 +102,20 @@ class FileManagerViewModel : ViewModel() {
 
     fun extractArchive(zipPath: String, destDir: String) {
         viewModelScope.launch(Dispatchers.IO) {
-            ArchiveHelper.extractZip(zipPath, destDir)
+            val lower = zipPath.lowercase()
+            when {
+                lower.endsWith(".tar.gz") || lower.endsWith(".tgz") -> ArchiveHelper.extractTarGz(zipPath, destDir)
+                lower.endsWith(".tar") -> ArchiveHelper.extractTar(zipPath, destDir)
+                else -> ArchiveHelper.extractZip(zipPath, destDir)
+            }
+            loadDirectory(Pane.LEFT, _uiState.value.leftPath)
+            loadDirectory(Pane.RIGHT, _uiState.value.rightPath)
+        }
+    }
+
+    fun createDirectory(path: String) {
+        viewModelScope.launch(Dispatchers.IO) {
+            FileOperationEngine.createDirectory(path)
             loadDirectory(Pane.LEFT, _uiState.value.leftPath)
             loadDirectory(Pane.RIGHT, _uiState.value.rightPath)
         }

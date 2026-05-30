@@ -1,7 +1,7 @@
 # XToolbox 全功能完善 Spec
 
 ## Why
-当前 XToolbox 项目仅为空壳，各功能页面只有 UI 骨架，核心逻辑未实现。需要基于 KernelSU 最新版本（v4.0+，SukiSU-Ultra 风格）UI 重新设计主页，使用 MIUI X Compose UI 库，并完善所有功能模块的实际实现。每个功能必须对应到 GitHub 上可查证的开源项目，无对应开源项目的功能直接舍弃。
+当前 XToolbox 项目仅为空壳，各功能页面只有 UI 骨架，核心逻辑未实现。需要基于 KernelSU 最新版本（v4.0+，SukiSU-Ultra 风格）UI 重新设计主页，使用 MIUI X Compose UI 库，并完善所有功能模块的实际实现。每个功能必须对应到 GitHub 上可查证的开源项目或可通过 Root Shell 命令实现，无对应开源项目且无法通过 Shell 实现的功能直接舍弃。
 
 ## What Changes
 - **UI 框架升级**：引入 MIUI X Compose UI 库（`top.yukonga.miuix.kmp:miuix-ui-android`），替换 Material3 为 MIUI X 风格
@@ -11,7 +11,7 @@
 - **SUWebUI 集成**：集成 KernelSU 模块 WebUI X 功能，支持模块的 Web 界面
 - **文件管理器完善**：MT 管理器风格双栏布局，实现压缩/解压/复制/移动/删除/权限修改等完整操作
 - **终端完善**：基于 libsu 的 root 终端，多会话、ANSI 颜色、快捷键
-- **更多功能筛选**：对 MoreScreen 中的功能逐一在 GitHub 搜索对应开源项目，有则实现，无则移除
+- **更多功能筛选**：对 MoreScreen 中的功能逐一验证，保留可实现的功能
 - **自动权限获取**：有 Root 权限时自动授予所有存储权限
 - **APK 签名**：Root 环境下修改 APK 后重新打包签名
 - **竞品显示修复**：修复 MoreScreen 网格布局文字显示不全的问题
@@ -160,37 +160,112 @@
 - **THEN** 系统以 Root 权限执行命令，实时显示输出，支持 ANSI 颜色
 
 ### Requirement: 更多功能筛选与实现
-系统 SHALL 对 MoreScreen 中的功能逐一验证，仅保留有对应开源项目的功能：
+系统 SHALL 对 MoreScreen 中的功能逐一验证，保留可实现的功能：
 
-**保留的功能（有对应开源项目）：**
+**保留的功能：**
 1. **AK3 内核刷写** → 参考 AnyKernel3 (https://github.com/osm0sis/AnyKernel3) - 内核刷入脚本模板
-2. **分区备份** → 通过 dd 命令实现分区镜像备份/恢复（无需外部项目，libsu 即可实现）
+2. **分区备份/刷写** → 通过 dd 命令实现分区镜像备份/恢复，支持刷写单个分区（类似甲壳虫ADB助手）
 3. **过检测工具箱** → 参考 PlayIntegrityFix (https://github.com/chiteroman/PlayIntegrityFix) + TrickyStore (https://github.com/5ec1cff/TrickyStore)
-4. **隐藏应用** → 参考 Hide My Applist (https://github.com/Dr-TSNG/Hide-My-Applist) - 应用列表隐藏
-5. **设备清理/改 ID** → 参考 DeviceIDChanger (https://github.com/sidex15/deviceidchanger) - SSAID/DeviceID 修改
-6. **密钥配置** → 参考 TrickyStore (https://github.com/5ec1cff/TrickyStore) - keybox.xml 配置管理
-7. **模块管理** → 已有 ModuleScreen，完善安装/卸载/开关功能
+4. **设备清理/改 ID** → 参考 DeviceIDChanger (https://github.com/sidex15/deviceidchanger) - SSAID/DeviceID 修改
+5. **密钥配置** → 照抄原 XToolbox 脚本中的密钥配置逻辑（通过 Root Shell 执行脚本命令实现 keybox 配置，不依赖 TrickyStore 模块）
+6. **模块管理** → 已有 ModuleScreen，完善安装/卸载/开关功能
+7. **一键隐藏** → 通过内置终端从服务器下载隐藏模块并刷入（照抄原脚本逻辑，在应用内通过 Shell 执行模块安装）
+8. **调度中心** → 自研 CPU 调度管理功能：
+   - 读取当前 CPU 各核心频率（大小核）
+   - 类似 Sense 的界面显示 CPU 状态
+   - 调整 CPU 大小核频率分配
+   - 自定义调速器（governor）切换
+   - 删除/禁用温控
+   - 提升触控采样率
+   - 动态图表显示当前 CPU 占用率、CPU 频率、各核心温度
 
-**移除的功能（无对应开源项目或无法在 APK 内实现）：**
-- ~~调度中心~~ → 无对应开源项目，移除
-- ~~伪装机型~~ → 无完整开源项目（PlayIntegrityFix 部分覆盖，但独立伪装机型功能无开源项目），移除
-- ~~刷机工具~~ → ADB/Fastboot 需要PC端配合，无法在 APK 内独立实现，移除
+**移除的功能（无对应开源项目且无法通过 Shell 实现）：**
+- ~~伪装机型~~ → 无完整开源项目，移除
 - ~~DTBO 工具箱~~ → 无对应开源项目，移除
 - ~~剪贴板解锁~~ → 无对应开源项目，移除
 - ~~游戏清理~~ → 无对应开源项目，移除
 - ~~TG 过验证~~ → 无对应开源项目，移除
 - ~~资源下载~~ → 无对应开源项目，移除
-- ~~一键隐藏~~ → 被 Hide My Applist 功能覆盖，移除
+- ~~隐藏应用列表~~ → 用户要求删除
 
 #### Scenario: 功能筛选
 - **WHEN** 用户进入"更多功能"页面
-- **THEN** 仅显示有对应开源项目的功能项，每个功能可点击进入对应操作界面
+- **THEN** 显示 8 个可实现的功能项，每个功能可点击进入对应操作界面
+
+### Requirement: CPU 调度中心
+系统 SHALL 提供 CPU 调度管理功能：
+- 实时读取 CPU 信息：
+  - 各核心当前频率（/sys/devices/system/cpu/cpu*/cpufreq/scaling_cur_freq）
+  - 各核心可用频率列表
+  - 当前调速器（governor）
+  - 各核心温度（/sys/class/thermal/thermal_zone*/temp）
+  - CPU 占用率（通过 /proc/stat 计算）
+- 调整操作：
+  - 设置大小核最小/最大频率
+  - 切换调速器（performance/powersave/schedutil/interactive 等）
+  - 禁用/启用温控（删除/恢复 /vendor/etc/thermal-engine.conf 等）
+  - 提升触控采样率（修改触摸相关节点）
+- 动态图表：
+  - 实时折线图显示 CPU 占用率
+  - 实时折线图显示各核心频率
+  - 温度指示器
+- 所有操作通过 Root Shell 写入 sysfs 节点实现
+
+#### Scenario: 查看 CPU 状态
+- **WHEN** 用户进入调度中心页面
+- **THEN** 显示各核心频率、温度、调速器、CPU 占用率的实时数据
+
+#### Scenario: 调整 CPU 频率
+- **WHEN** 用户设置某核心的最大频率
+- **THEN** 系统通过 Root Shell 写入对应 sysfs 节点，立即生效
+
+#### Scenario: 切换调速器
+- **WHEN** 用户选择 performance 调速器
+- **THEN** 系统通过 Root Shell 写入所有核心的 scaling_governor 节点
+
+### Requirement: 一键隐藏
+系统 SHALL 提供一键隐藏功能：
+- 从服务器下载隐藏模块（如 Shamiko 等）
+- 通过内置终端/Shell 执行模块刷入命令
+- 照抄原 XToolbox 脚本中的一键隐藏逻辑
+- 显示执行过程和结果
+
+#### Scenario: 一键隐藏执行
+- **WHEN** 用户点击"一键隐藏"功能
+- **THEN** 系统从服务器下载隐藏模块，通过 Shell 执行模块安装，显示执行输出
+
+### Requirement: 密钥配置
+系统 SHALL 提供密钥配置功能：
+- 照抄原 XToolbox 脚本中的密钥配置逻辑
+- 通过 Root Shell 执行脚本命令实现 keybox.xml 配置
+- 不依赖 TrickyStore 模块，直接通过 Shell 操作配置文件
+- 支持导入 keybox.xml 文件
+- 支持配置 target.txt
+
+#### Scenario: 配置密钥
+- **WHEN** 用户导入 keybox.xml 文件并点击应用
+- **THEN** 系统通过 Root Shell 将 keybox.xml 写入 /data/adb/tricky_store/ 目录
+
+### Requirement: 分区刷写
+系统 SHALL 提供分区刷写功能（类似甲壳虫ADB助手）：
+- 列出设备所有分区（通过 /proc/partitions 或 ls /dev/block/by-name/）
+- 支持分区镜像备份（dd if=/dev/block/... of=/sdcard/backup.img）
+- 支持分区镜像刷写（dd if=/sdcard/flash.img of=/dev/block/...）
+- 刷写前自动备份原分区
+- 危险操作二次确认
+
+#### Scenario: 备份分区
+- **WHEN** 用户选择某分区并点击备份
+- **THEN** 系统通过 dd 命令将分区镜像保存到 /sdcard/ 目录
+
+#### Scenario: 刷写分区
+- **WHEN** 用户选择镜像文件和目标分区并确认刷写
+- **THEN** 系统先备份目标分区，再通过 dd 命令刷写镜像
 
 ### Requirement: 自动权限获取
 系统 SHALL 在检测到 Root 权限时自动授予所有存储权限：
 - 通过 Root Shell 执行 `pm grant` 命令授予 READ_EXTERNAL_STORAGE、WRITE_EXTERNAL_STORAGE、MANAGE_EXTERNAL_STORAGE 权限
 - 无需用户手动授权
-- 修改后重新打包并签名
 
 #### Scenario: Root 环境自动授权
 - **WHEN** 应用检测到 Root 权限且存储权限未授予
@@ -234,7 +309,7 @@
 原终端基本框架保留，完善多会话管理和命令执行逻辑，UI 迁移到 MIUI X 风格。
 
 ### Requirement: 更多功能（原 MoreScreen）
-从 16 个功能项精简为 7 个有开源项目支撑的功能项，布局从 Grid 改为 MIUI X 列表风格，每个功能需实现对应的操作界面。
+从 16 个功能项精简为 8 个可实现的功能项，布局从 Grid 改为 MIUI X 列表风格，每个功能需实现对应的操作界面。新增调度中心（CPU 管理）和一键隐藏功能。
 
 ## REMOVED Requirements
 
@@ -242,17 +317,9 @@
 **Reason**: 替换为 MIUI X 风格（miuix 库）
 **Migration**: 使用 MiuixTheme 和 MIUI X 组件
 
-### Requirement: 调度中心
-**Reason**: 无对应开源项目
-**Migration**: 直接移除，不提供替代
-
 ### Requirement: 伪装机型
 **Reason**: 无完整独立开源项目
 **Migration**: PlayIntegrityFix 的指纹伪装功能部分覆盖此需求
-
-### Requirement: 刷机工具（ADB/Fastboot）
-**Reason**: 需要PC端配合，无法在 APK 内独立实现
-**Migration**: 直接移除
 
 ### Requirement: DTBO 工具箱
 **Reason**: 无对应开源项目
@@ -274,6 +341,6 @@
 **Reason**: 无对应开源项目
 **Migration**: 直接移除
 
-### Requirement: 一键隐藏
-**Reason**: 被 Hide My Applist 功能覆盖
-**Migration**: 使用"隐藏应用"功能替代
+### Requirement: 隐藏应用列表（Hide My Applist）
+**Reason**: 用户要求删除
+**Migration**: 使用"一键隐藏"功能替代（通过刷入模块实现隐藏）

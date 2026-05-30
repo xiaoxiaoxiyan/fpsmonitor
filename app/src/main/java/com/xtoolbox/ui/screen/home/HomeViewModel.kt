@@ -22,28 +22,24 @@ class HomeViewModel : ViewModel() {
     fun loadDeviceInfo() {
         viewModelScope.launch(Dispatchers.IO) {
             _uiState.value = _uiState.value.copy(isLoading = true)
-
             Shell.getShell()
-
             val isRooted = RootChecker.isRootAvailable()
             val rootMethod = RootChecker.getRootMethod()
-            val workMode = if (isRooted) RootChecker.getWorkMode() else "未知"
-            val kernelVersion = if (isRooted) RootChecker.getKernelVersion() else "未知"
-            val securityPatch = if (isRooted) RootChecker.getSecurityPatch() else "未知"
-            val cpuInfo = if (isRooted) RootChecker.getCpuInfo() else "未知"
-            val ramSize = if (isRooted) RootChecker.getRamSize() else "未知"
-
             _uiState.value = HomeUiState(
                 isRooted = isRooted,
                 rootMethod = rootMethod.displayName,
-                workMode = workMode,
-                kernelVersion = kernelVersion,
+                rootMethodVersion = if (isRooted) RootChecker.getRootMethodVersion() else "",
+                workMode = if (isRooted) RootChecker.getWorkMode() else "未知",
+                kernelVersion = if (isRooted) RootChecker.getKernelVersion() else "未知",
                 androidVersion = RootChecker.getAndroidVersion(),
                 apiLevel = RootChecker.getApiLevel(),
-                securityPatch = securityPatch.ifBlank { "未知" },
+                securityPatch = if (isRooted) RootChecker.getSecurityPatch().ifBlank { "未知" } else "未知",
                 deviceModel = RootChecker.getDeviceModel(),
-                cpuInfo = cpuInfo,
-                ramSize = ramSize,
+                cpuInfo = if (isRooted) RootChecker.getCpuInfo() else "未知",
+                ramSize = if (isRooted) RootChecker.getRamSize() else "未知",
+                suCompatStatus = if (isRooted) RootChecker.getSuCompatStatus() else "不可用",
+                superUserCount = if (isRooted) RootChecker.getSuperUserCount() else 0,
+                susfsStatus = if (isRooted) RootChecker.getSusfsStatus() else "不可用",
                 isLoading = false
             )
         }

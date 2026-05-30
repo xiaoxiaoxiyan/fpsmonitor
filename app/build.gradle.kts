@@ -39,10 +39,6 @@ android {
         compose = true
     }
 
-    composeOptions {
-        kotlinCompilerExtensionVersion = "1.5.15"
-    }
-
     packaging {
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
@@ -74,6 +70,9 @@ dependencies {
     implementation("com.topjohnwu.libsu:nio:5.2.2")
 
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
+
+    implementation("top.yukonga.miuix.kmp:miuix-ui-android:0.8.8")
+    implementation("com.patrykandpatrick.vico:compose-m3:2.0.1")
 
     implementation("net.lingala.zip4j:zip4j:2.11.5")
 

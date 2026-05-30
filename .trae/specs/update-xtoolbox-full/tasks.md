@@ -37,14 +37,15 @@
   - [ ] SubTask 6.3: 重写 TerminalScreen UI，迁移到 MIUI X 风格
 
 - [ ] Task 7: 更多功能筛选与实现
-  - [ ] SubTask 7.1: 精简 MoreScreen 功能列表为 7 项，移除无开源项目支撑的功能
+  - [ ] SubTask 7.1: 精简 MoreScreen 功能列表为 8 项，移除无开源项目支撑的功能
   - [ ] SubTask 7.2: 重写 MoreScreen 布局，从 Grid 改为 MIUI X 列表风格（BasicComponent），修复文字显示不全
   - [ ] SubTask 7.3: 实现 AK3 内核刷写功能页面（参考 AnyKernel3）
-  - [ ] SubTask 7.4: 实现分区备份/恢复功能页面（dd 命令）
+  - [ ] SubTask 7.4: 实现分区备份/刷写功能页面（dd 命令，类似甲壳虫ADB助手）
   - [ ] SubTask 7.5: 实现过检测工具箱功能页面（PlayIntegrityFix + TrickyStore 配置管理）
-  - [ ] SubTask 7.6: 实现隐藏应用功能页面（参考 Hide My Applist）
-  - [ ] SubTask 7.7: 实现设备清理/改 ID 功能页面（参考 DeviceIDChanger）
-  - [ ] SubTask 7.8: 实现密钥配置功能页面（TrickyStore keybox.xml 管理）
+  - [ ] SubTask 7.6: 实现设备清理/改 ID 功能页面（参考 DeviceIDChanger）
+  - [ ] SubTask 7.7: 实现密钥配置功能页面（照抄原脚本逻辑，Shell 操作 keybox.xml）
+  - [ ] SubTask 7.8: 实现一键隐藏功能页面（从服务器下载模块并刷入）
+  - [ ] SubTask 7.9: 实现 CPU 调度中心功能页面（频率读取/调整、调速器切换、温控管理、触控采样率、动态图表）
 
 - [ ] Task 8: 自动权限获取
   - [ ] SubTask 8.1: 在 App.kt 或 MainActivity 中实现 Root 环境自动授予存储权限
@@ -64,7 +65,7 @@
 - Task 4 (SUWebUI) 依赖 Task 1 和 Task 2 中的 Root 检测逻辑
 - Task 5 (文件管理器) 依赖 Task 1
 - Task 6 (终端) 依赖 Task 1
-- Task 7 (更多功能) 依赖 Task 1，SubTask 7.3-7.8 可并行
+- Task 7 (更多功能) 依赖 Task 1，SubTask 7.3-7.9 可并行
 - Task 8 (自动权限) 依赖 Task 2 中的 Root 检测
 - Task 9 (APK 签名) 依赖 Task 5 (文件管理器)
 - Task 10 (编译验证) 依赖所有其他任务完成
