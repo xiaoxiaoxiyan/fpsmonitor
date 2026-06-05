@@ -19,10 +19,10 @@ jobs:
           distribution: 'temurin'
 
       - name: Setup Gradle
-        run: chmod +x gradlew 2>/dev/null; gradle wrapper --gradle-version 8.2 || true
+        uses: gradle/actions/setup-gradle@v4
 
       - name: Build APK
-        run: ./gradlew assembleDebug --stacktrace
+        run: gradle assembleDebug --stacktrace
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
