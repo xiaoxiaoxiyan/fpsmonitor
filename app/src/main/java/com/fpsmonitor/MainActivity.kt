@@ -76,7 +76,7 @@ fun FpsMonitorApp() {
     }
 
     val navItems = listOf(
-        BottomNavItem("实时监测", Icons.Default.Speed, "monitor"),
+        BottomNavItem("实时监测", Icons.Default.ShowChart, "monitor"),
         BottomNavItem("历史记录", Icons.Default.DateRange, "history"),
         BottomNavItem("设置", Icons.Default.Settings, "settings")
     )
