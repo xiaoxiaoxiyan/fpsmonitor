@@ -13,12 +13,12 @@ import kotlinx.coroutines.flow.asStateFlow
  * TakoStats uses Shizuku for the same purpose; we use Root directly.
  *
  * Sysfs paths:
- * - CPU freq: /sys/devices/system/cpu/cpu*/cpufreq/scaling_cur_freq
+ * - CPU freq: /sys/devices/system/cpu/cpuX/cpufreq/scaling_cur_freq
  * - CPU usage: /proc/stat
  * - GPU load: /sys/class/kgsl/kgsl-3d0/gpu_busy_percentage (Qualcomm)
  * - Battery temp: /sys/class/power_supply/battery/temp
  * - Battery level: /sys/class/power_supply/battery/capacity
- * - CPU temp: /sys/class/thermal/thermal_zone*/temp
+ * - CPU temp: /sys/class/thermal/thermal_zoneX/temp
  */
 class HardwareMonitor {
 
@@ -180,7 +180,7 @@ class HardwareMonitor {
 
     /**
      * Read CPU temperature from thermal zones.
-     * Scans /sys/class/thermal/thermal_zone*/temp for CPU-related zones.
+     * Scans /sys/class/thermal/thermal_zoneX/temp for CPU-related zones.
      * Reference: Scene scans thermal zones for CPU temperature.
      */
     private suspend fun readCpuTemp(): Float {

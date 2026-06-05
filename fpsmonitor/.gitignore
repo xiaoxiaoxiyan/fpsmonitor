@@ -14,4 +14,4 @@ bin/
 gen/
 out/
 .navigation/
-*.log
+*.loggradle/wrapper/gradle-wrapper.jar
