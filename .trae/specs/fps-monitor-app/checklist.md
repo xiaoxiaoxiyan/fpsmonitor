@@ -1,0 +1,27 @@
+- [x] 项目目录结构完整，包含 settings.gradle.kts、根 build.gradle.kts、app/build.gradle.kts、gradle.properties
+- [x] AndroidManifest.xml 声明了 SYSTEM_ALERT_WINDOW、FOREGROUND_SERVICE、POST_NOTIFICATIONS 权限
+- [x] RootChecker 能正确检测设备 Root 状态（通过 `su -c id` 验证）
+- [x] ShellExecutor 能通过 libsu 执行 Root Shell 命令并返回输出
+- [x] 自动授予悬浮窗权限功能正常（`appops set SYSTEM_ALERT_WINDOW allow`）
+- [x] FpsMonitor 使用 Choreographer.FrameCallback 正确采集帧率，doFrame() 回调中计算帧间隔
+- [x] 掉帧检测正确：帧耗时超过 16.67ms 标记为 Jank，累计计数
+- [x] 采样间隔控制生效（默认 250ms），与 Takt 方案一致
+- [x] HardwareMonitor 能通过 Root Shell 读取 CPU 频率（所有核心）
+- [x] CPU 使用率通过 /proc/stat 正确计算
+- [x] GPU 负载能正确读取（高通 kgsl 路径）
+- [x] 电池温度、CPU 温度、电池电量能正确读取
+- [x] FpsOverlayService 前台 Service 正常启动，悬浮窗显示在屏幕上
+- [x] 悬浮窗显示实时 FPS 数值，颜色编码正确（绿>=50/黄30-49/红<30）
+- [x] 悬浮窗可拖拽移动（通过 onTouchListener）
+- [x] 悬浮窗展开/收起切换正常（收起仅 FPS，展开显示 CPU/GPU/温度/电池）
+- [x] 悬浮窗实时更新 FPS 和硬件数据，刷新流畅
+- [x] FpsRecorder 能记录 FPS 历史数据到内存列表
+- [x] FPS 折线图（Canvas 自绘）正常显示，数据点正确
+- [x] 统计信息（平均/最低/最高 FPS、掉帧数）正确计算
+- [x] CSV 导出功能正常，生成合法 CSV 文件
+- [x] 主界面显示 Root 状态卡片 + 实时 FPS 大数字 + 控制按钮
+- [x] 底部导航三个 Tab（实时监测/历史记录/设置）切换正常
+- [x] 历史记录页面显示会话列表，点击可查看图表
+- [x] 设置页面各项配置（采样间隔、颜色、目标帧率、大小）可调整并生效
+- [ ] `./gradlew assembleDebug` 编译成功，生成 APK 文件（注：沙箱环境 Java HTTP 出站受限，需在本地 Android Studio 中编译）
+- [ ] APK 文件路径正确：`fpsmonitor/app/build/outputs/apk/debug/fpsmonitor-debug.apk`（注：需在本地编译后验证）

@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="fps_good">#FF4CAF50</color>
+    <color name="fps_warning">#FFFFC107</color>
+    <color name="fps_bad">#FFF44336</color>
+    <color name="background">#FF1A1A2E</color>
+    <color name="surface">#FF16213E</color>
+    <color name="primary">#FF0F3460</color>
+    <color name="accent">#FFE94560</color>
+</resources>
