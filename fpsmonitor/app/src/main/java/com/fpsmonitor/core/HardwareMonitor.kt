@@ -65,6 +65,7 @@ class HardwareMonitor {
      */
     private suspend fun updateHardwareData() {
         val cpuFreqs = readCpuFrequencies()
+        val cpuCores = readCpuGovernors(cpuFreqs)
         val cpuUsage = readCpuUsage()
         val gpuUsage = readGpuUsage()
         val batteryTemp = readBatteryTemp()
@@ -74,6 +75,7 @@ class HardwareMonitor {
         _hardwareData.value = HardwareData(
             cpuUsage = cpuUsage,
             cpuFreqs = cpuFreqs,
+            cpuCores = cpuCores,
             gpuUsage = gpuUsage,
             batteryTemp = batteryTemp,
             batteryLevel = batteryLevel,
@@ -98,6 +100,62 @@ class HardwareMonitor {
             }
         }
         return freqs
+    }
+
+    /**
+     * Read CPU governors for all cores.
+     * Path: /sys/devices/system/cpu/cpu{N}/cpufreq/scaling_governor
+     * Also reads available governors from cpu0.
+     */
+    private suspend fun readCpuGovernors(cpuFreqs: List<Long>): List<CpuCoreInfo> {
+        val cores = mutableListOf<CpuCoreInfo>()
+        val availableGovernors = readAvailableGovernors()
+
+        for (i in 0 until CPU_COUNT) {
+            val govPath = "/sys/devices/system/cpu/cpu$i/cpufreq/scaling_governor"
+            val governor = ShellExecutor.readFile(govPath).trim()
+
+            if (governor.isNotEmpty()) {
+                val freq = if (i < cpuFreqs.size) cpuFreqs[i] else 0L
+                cores.add(CpuCoreInfo(
+                    coreId = i,
+                    freqMHz = freq,
+                    governor = governor,
+                    availableGovernors = availableGovernors
+                ))
+            } else {
+                // Core exists but no governor info, add with freq only
+                if (i < cpuFreqs.size) {
+                    cores.add(CpuCoreInfo(
+                        coreId = i,
+                        freqMHz = cpuFreqs[i],
+                        governor = "",
+                        availableGovernors = emptyList()
+                    ))
+                }
+            }
+        }
+        return cores
+    }
+
+    /**
+     * Read available governors from cpu0.
+     * Path: /sys/devices/system/cpu/cpu0/cpufreq/scaling_available_governors
+     */
+    private suspend fun readAvailableGovernors(): List<String> {
+        val value = ShellExecutor.readFile("/sys/devices/system/cpu/cpu0/cpufreq/scaling_available_governors")
+        return if (value.isNotEmpty()) {
+            value.trim().split(" ", "\n").filter { it.isNotBlank() }
+        } else emptyList()
+    }
+
+    /**
+     * Set CPU governor for a specific core.
+     * Path: /sys/devices/system/cpu/cpu{N}/cpufreq/scaling_governor
+     */
+    suspend fun setCpuGovernor(coreIndex: Int, governor: String): Boolean {
+        val path = "/sys/devices/system/cpu/cpu$coreIndex/cpufreq/scaling_governor"
+        return ShellExecutor.writeFile(path, governor)
     }
 
     /**

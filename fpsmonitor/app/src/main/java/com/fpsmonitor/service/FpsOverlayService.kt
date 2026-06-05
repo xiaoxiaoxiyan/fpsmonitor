@@ -1,5 +1,7 @@
 package com.fpsmonitor.service
 
+import android.annotation.SuppressLint
+import android.app.AlertDialog
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -14,12 +16,13 @@ import android.os.IBinder
 import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
+import android.view.ViewGroup
 import android.view.WindowManager
 import android.widget.LinearLayout
+import android.widget.ScrollView
 import android.widget.TextView
 import androidx.core.app.NotificationCompat
 import com.fpsmonitor.MainActivity
-import com.fpsmonitor.R
 import com.fpsmonitor.core.FpsData
 import com.fpsmonitor.core.FpsMonitor
 import com.fpsmonitor.core.HardwareData
@@ -28,25 +31,14 @@ import kotlinx.coroutines.*
 
 /**
  * FpsOverlayService - Foreground service displaying a draggable FPS overlay.
- *
- * Reference: TinyDancer's Service-based overlay approach.
- * TinyDancer uses a Service to manage the overlay lifecycle and
- * WindowManager to add/remove the floating view.
- *
- * Features:
- * - Draggable overlay (TinyDancer's onTouchListener drag pattern)
- * - Color-coded FPS (green >= 50, yellow 30-49, red < 30)
- * - Collapsible/expandable (tap to toggle)
- * - Shows hardware data when expanded (CPU/GPU/temp/battery)
+ * Click to expand into a full white panel with FPS chart, CPU controls, and CPU freq chart.
  */
 class FpsOverlayService : Service() {
 
     companion object {
         private const val CHANNEL_ID = "fps_overlay"
         private const val NOTIFICATION_ID = 1
-        private const val TAG = "FpsOverlayService"
 
-        // FPS color thresholds (TinyDancer pattern)
         const val FPS_GOOD = 50
         const val FPS_WARNING = 30
     }
@@ -60,10 +52,23 @@ class FpsOverlayService : Service() {
     private val hardwareMonitor = HardwareMonitor()
     private val scope = CoroutineScope(Dispatchers.Main + SupervisorJob())
 
-    // UI references
-    private var fpsText: TextView? = null
-    private var detailText: TextView? = null
-    private var detailLayout: LinearLayout? = null
+    // Collapsed view references
+    private var collapsedLayout: LinearLayout? = null
+    private var collapsedFpsText: TextView? = null
+
+    // Expanded view references
+    private var expandedLayout: LinearLayout? = null
+    private var statusFpsText: TextView? = null
+    private var statusCpuTempText: TextView? = null
+    private var statusBatTempText: TextView? = null
+    private var fpsChartView: FpsLineChartView? = null
+    private var cpuFreqChartView: CpuFreqChartView? = null
+    private var cpuCoreContainer: LinearLayout? = null
+    private var cpuCoreViews: MutableList<LinearLayout> = mutableListOf()
+
+    // CPU frequency history for chart
+    private val cpuFreqHistory = mutableListOf<List<Long>>()
+    private val MAX_CPU_HISTORY = 30
 
     override fun onCreate() {
         super.onCreate()
@@ -90,9 +95,6 @@ class FpsOverlayService : Service() {
         super.onDestroy()
     }
 
-    /**
-     * Create notification channel for foreground service.
-     */
     private fun createNotificationChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channel = NotificationChannel(
@@ -107,9 +109,6 @@ class FpsOverlayService : Service() {
         }
     }
 
-    /**
-     * Build foreground service notification.
-     */
     private fun buildNotification(): Notification {
         val intent = Intent(this, MainActivity::class.java)
         val pendingIntent = PendingIntent.getActivity(
@@ -127,39 +126,114 @@ class FpsOverlayService : Service() {
     }
 
     /**
-     * Create the WindowManager overlay view.
-     * Reference: TinyDancer's overlay View creation pattern.
+     * Create the overlay view with collapsed and expanded states.
      */
+    @SuppressLint("ClickableViewAccessibility")
     private fun createOverlayView() {
-        // Create main container
+        // Main container
         val container = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(16, 12, 16, 12)
+        }
+
+        // --- Collapsed view (dark pill, always visible) ---
+        collapsedLayout = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            setPadding(20, 10, 20, 10)
             setBackgroundColor(Color.argb(180, 0, 0, 0))
+            // Use a GradientDrawable for rounded corners
+            background = android.graphics.drawable.GradientDrawable().apply {
+                setColor(Color.argb(180, 0, 0, 0))
+                cornerRadius = 24f
+            }
         }
 
-        // FPS text (large, always visible)
-        fpsText = TextView(this).apply {
+        collapsedFpsText = TextView(this).apply {
             text = "FPS: --"
-            textSize = 18f
+            textSize = 16f
             setTextColor(Color.WHITE)
-            setPadding(0, 0, 0, 4)
         }
-        container.addView(fpsText)
+        collapsedLayout!!.addView(collapsedFpsText)
+        container.addView(collapsedLayout)
 
-        // Detail layout (hidden when collapsed)
-        detailLayout = LinearLayout(this).apply {
+        // --- Expanded view (white panel, hidden by default) ---
+        expandedLayout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             visibility = View.GONE
+            setPadding(16, 12, 16, 12)
+            background = android.graphics.drawable.GradientDrawable().apply {
+                setColor(Color.argb(235, 255, 255, 255))
+                cornerRadius = 16f
+            }
         }
 
-        detailText = TextView(this).apply {
-            text = ""
-            textSize = 11f
-            setTextColor(Color.argb(200, 255, 255, 255))
+        // Top status bar: FPS + CPU temp + battery temp
+        val statusBar = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            setPadding(0, 0, 0, 8)
         }
-        detailLayout!!.addView(detailText)
-        container.addView(detailLayout)
+
+        statusFpsText = TextView(this).apply {
+            text = "FPS: --"
+            textSize = 18f
+            setTextColor(Color.DKGRAY)
+            setPadding(0, 0, 16, 0)
+        }
+        statusBar.addView(statusFpsText)
+
+        statusCpuTempText = TextView(this).apply {
+            text = "CPU: --°C"
+            textSize = 13f
+            setTextColor(Color.DKGRAY)
+            setPadding(0, 0, 12, 0)
+        }
+        statusBar.addView(statusCpuTempText)
+
+        statusBatTempText = TextView(this).apply {
+            text = "Bat: --°C"
+            textSize = 13f
+            setTextColor(Color.DKGRAY)
+        }
+        statusBar.addView(statusBatTempText)
+        expandedLayout!!.addView(statusBar)
+
+        // Middle section: FPS chart (left) + CPU core controls (right)
+        val middleRow = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+        }
+
+        // FPS chart
+        fpsChartView = FpsLineChartView(this).apply {
+            layoutParams = LinearLayout.LayoutParams(0, 320).apply {
+                weight = 1f
+            }
+        }
+        middleRow.addView(fpsChartView)
+
+        // CPU core controls (scrollable)
+        val scrollView = ScrollView(this).apply {
+            layoutParams = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                320
+            )
+        }
+        cpuCoreContainer = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(8, 0, 0, 0)
+        }
+        scrollView.addView(cpuCoreContainer)
+        middleRow.addView(scrollView)
+        expandedLayout!!.addView(middleRow)
+
+        // Bottom: CPU frequency chart
+        cpuFreqChartView = CpuFreqChartView(this).apply {
+            layoutParams = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                200
+            )
+        }
+        expandedLayout!!.addView(cpuFreqChartView)
+
+        container.addView(expandedLayout)
 
         // Configure window params
         val type = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -183,26 +257,23 @@ class FpsOverlayService : Service() {
             y = 200
         }
 
-        // Make overlay draggable (TinyDancer pattern: onTouchListener)
         container.setOnTouchListener(OverlayTouchListener())
-
-        // Tap to expand/collapse (TinyDancer pattern: click to toggle)
         container.setOnClickListener {
-            isExpanded = !isExpanded
-            detailLayout?.visibility = if (isExpanded) View.VISIBLE else View.GONE
-            // Update window layout
-            try {
-                overlayView?.let { windowManager.updateViewLayout(it, layoutParams) }
-            } catch (_: Exception) { }
+            toggleExpanded()
         }
 
         overlayView = container
         windowManager.addView(overlayView, layoutParams)
     }
 
-    /**
-     * Remove overlay view from WindowManager.
-     */
+    private fun toggleExpanded() {
+        isExpanded = !isExpanded
+        expandedLayout?.visibility = if (isExpanded) View.VISIBLE else View.GONE
+        try {
+            overlayView?.let { windowManager.updateViewLayout(it, layoutParams) }
+        } catch (_: Exception) { }
+    }
+
     private fun removeOverlayView() {
         try {
             overlayView?.let { windowManager.removeView(it) }
@@ -210,17 +281,18 @@ class FpsOverlayService : Service() {
         overlayView = null
     }
 
-    /**
-     * Start FPS and hardware monitoring.
-     */
     private fun startMonitoring() {
         fpsMonitor.start()
         hardwareMonitor.start()
 
-        // Collect FPS data and update overlay
         scope.launch {
             launch {
                 fpsMonitor.fpsData.collect { data -> updateFpsDisplay(data) }
+            }
+            launch {
+                fpsMonitor.fpsHistory.collect { history ->
+                    fpsChartView?.updateData(history)
+                }
             }
             launch {
                 hardwareMonitor.hardwareData.collect { data -> updateHardwareDisplay(data) }
@@ -228,56 +300,168 @@ class FpsOverlayService : Service() {
         }
     }
 
-    /**
-     * Stop monitoring.
-     */
     private fun stopMonitoring() {
         fpsMonitor.stop()
         hardwareMonitor.stop()
     }
 
-    /**
-     * Update FPS display with color coding.
-     * Reference: TinyDancer's color coding (green/yellow/red).
-     */
     private fun updateFpsDisplay(data: FpsData) {
         val fps = data.fps
         val color = when {
-            fps >= FPS_GOOD -> Color.rgb(76, 175, 80)    // Green
-            fps >= FPS_WARNING -> Color.rgb(255, 193, 7)  // Yellow
-            else -> Color.rgb(244, 67, 54)                // Red
+            fps >= FPS_GOOD -> Color.rgb(76, 175, 80)
+            fps >= FPS_WARNING -> Color.rgb(255, 152, 0)
+            else -> Color.rgb(244, 67, 54)
         }
-        fpsText?.apply {
+
+        // Update collapsed view
+        collapsedFpsText?.apply {
+            text = "FPS: $fps"
+            setTextColor(color)
+        }
+
+        // Update expanded status bar
+        statusFpsText?.apply {
             text = "FPS: $fps"
             setTextColor(color)
         }
     }
 
-    /**
-     * Update hardware data display.
-     */
     private fun updateHardwareDisplay(data: HardwareData) {
         if (!isExpanded) return
 
-        val cpuFreq = if (data.cpuFreqs.isNotEmpty()) {
-            data.cpuFreqs.take(4).joinToString(" ") { "${it}MHz" }
-        } else "N/A"
-
-        val text = buildString {
-            append("CPU: ${data.cpuUsage.toInt()}%")
-            if (cpuFreq != "N/A") append(" | $cpuFreq")
-            append("\nGPU: ${data.gpuUsage.toInt()}%")
-            append(" | Bat: ${data.batteryLevel}%")
-            append("\nTemp: CPU ${data.cpuTemp.toInt()}°C")
-            append(" | Bat ${data.batteryTemp.toInt()}°C")
+        // CPU temperature with color
+        val cpuTemp = data.cpuTemp
+        val cpuTempColor = when {
+            cpuTemp < 40f -> Color.rgb(76, 175, 80)
+            cpuTemp < 60f -> Color.rgb(255, 152, 0)
+            else -> Color.rgb(244, 67, 54)
+        }
+        statusCpuTempText?.apply {
+            text = "CPU: ${cpuTemp.toInt()}°C"
+            setTextColor(cpuTempColor)
         }
 
-        detailText?.text = text
+        // Battery temperature
+        val batTemp = data.batteryTemp
+        val batTempColor = when {
+            batTemp < 35f -> Color.rgb(76, 175, 80)
+            batTemp < 45f -> Color.rgb(255, 152, 0)
+            else -> Color.rgb(244, 67, 54)
+        }
+        statusBatTempText?.apply {
+            text = "Bat: ${batTemp.toInt()}°C"
+            setTextColor(batTempColor)
+        }
+
+        // Update CPU core controls
+        updateCpuCoreControls(data)
+
+        // Update CPU frequency chart
+        if (data.cpuFreqs.isNotEmpty()) {
+            cpuFreqHistory.add(data.cpuFreqs)
+            if (cpuFreqHistory.size > MAX_CPU_HISTORY) {
+                cpuFreqHistory.removeAt(0)
+            }
+            cpuFreqChartView?.updateData(cpuFreqHistory.toList(), data.cpuFreqs.size)
+        }
+    }
+
+    private fun updateCpuCoreControls(data: HardwareData) {
+        val container = cpuCoreContainer ?: return
+        val cores = data.cpuCores
+
+        // Remove old views
+        for (view in cpuCoreViews) {
+            container.removeView(view)
+        }
+        cpuCoreViews.clear()
+
+        if (cores.isEmpty()) {
+            // Use raw cpuFreqs if no governor data
+            data.cpuFreqs.forEachIndexed { index, freq ->
+                val row = createCoreRow(index, freq, "", emptyList())
+                container.addView(row)
+                cpuCoreViews.add(row)
+            }
+        } else {
+            for (core in cores) {
+                val row = createCoreRow(core.coreId, core.freqMHz, core.governor, core.availableGovernors)
+                container.addView(row)
+                cpuCoreViews.add(row)
+            }
+        }
+    }
+
+    @SuppressLint("SetTextI18n")
+    private fun createCoreRow(
+        coreId: Int,
+        freqMHz: Long,
+        governor: String,
+        availableGovernors: List<String>
+    ): LinearLayout {
+        val row = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(8, 4, 8, 4)
+            background = android.graphics.drawable.GradientDrawable().apply {
+                setColor(Color.parseColor("#F5F5F5"))
+                cornerRadius = 6f
+            }
+            // Margin between rows
+            (layoutParams as? LinearLayout.LayoutParams)?.setMargins(0, 0, 0, 4)
+        }
+
+        val freqText = TextView(this).apply {
+            text = "核心$coreId: ${freqMHz}MHz"
+            textSize = 12f
+            setTextColor(Color.DKGRAY)
+        }
+        row.addView(freqText)
+
+        val govText = TextView(this).apply {
+            text = if (governor.isNotEmpty()) "调速器: $governor" else "调速器: 不支持"
+            textSize = 11f
+            setTextColor(Color.parseColor("#888888"))
+            setPadding(0, 2, 0, 0)
+
+            if (governor.isNotEmpty() && availableGovernors.isNotEmpty()) {
+                setOnClickListener {
+                    showGovernorDialog(coreId, governor, availableGovernors, this)
+                }
+                // Visual indicator that it's clickable
+                setBackgroundColor(Color.parseColor("#E8E8E8"))
+            }
+        }
+        row.addView(govText)
+
+        return row
+    }
+
+    private fun showGovernorDialog(
+        coreId: Int,
+        currentGovernor: String,
+        availableGovernors: List<String>,
+        targetView: TextView
+    ) {
+        val items = availableGovernors.toTypedArray()
+        AlertDialog.Builder(this)
+            .setTitle("选择核心${coreId}调速器")
+            .setItems(items) { _, which ->
+                val selected = items[which]
+                scope.launch {
+                    val success = hardwareMonitor.setCpuGovernor(coreId, selected)
+                    if (success) {
+                        targetView.post {
+                            targetView.text = "调速器: $selected"
+                        }
+                    }
+                }
+            }
+            .setNegativeButton("取消", null)
+            .show()
     }
 
     /**
      * Touch listener for dragging the overlay.
-     * Reference: TinyDancer's drag implementation using onTouchListener.
      */
     private inner class OverlayTouchListener : View.OnTouchListener {
         private var initialX = 0
@@ -315,7 +499,6 @@ class FpsOverlayService : Service() {
                     return true
                 }
                 MotionEvent.ACTION_UP -> {
-                    // If not dragged, treat as click (handled by onClickListener)
                     return !isDragging
                 }
             }

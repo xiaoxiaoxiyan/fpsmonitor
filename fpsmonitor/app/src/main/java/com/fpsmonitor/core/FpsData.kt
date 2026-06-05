@@ -14,12 +14,23 @@ data class FpsData(
 )
 
 /**
+ * CPU core information including frequency and governor.
+ */
+data class CpuCoreInfo(
+    val coreId: Int = 0,
+    val freqMHz: Long = 0,
+    val governor: String = "",
+    val availableGovernors: List<String> = emptyList()
+)
+
+/**
  * Hardware monitoring data collected via root shell.
  * Reference: Scene's root mode hardware monitoring.
  */
 data class HardwareData(
     val cpuUsage: Float = 0f,
     val cpuFreqs: List<Long> = emptyList(),
+    val cpuCores: List<CpuCoreInfo> = emptyList(),
     val gpuUsage: Float = 0f,
     val batteryTemp: Float = 0f,
     val batteryLevel: Int = 0,

@@ -44,6 +44,18 @@ object ShellExecutor {
     }
 
     /**
+     * Write content to a file via root shell.
+     */
+    suspend fun writeFile(path: String, content: String): Boolean = withContext(Dispatchers.IO) {
+        try {
+            val result = Shell.cmd("echo '$content' > $path").exec()
+            result.isSuccess
+        } catch (e: Exception) {
+            false
+        }
+    }
+
+    /**
      * Check if a file or directory exists (via root).
      */
     suspend fun exists(path: String): Boolean {
