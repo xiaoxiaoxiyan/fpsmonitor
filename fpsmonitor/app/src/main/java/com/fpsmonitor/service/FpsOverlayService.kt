@@ -290,7 +290,7 @@ class FpsOverlayService : Service() {
                 fpsMonitor.fpsData.collect { data -> updateFpsDisplay(data) }
             }
             launch {
-                fpsMonitor.fpsHistory.collect { history ->
+                fpsMonitor.fpsChartData.collect { history ->
                     fpsChartView?.updateData(history)
                 }
             }

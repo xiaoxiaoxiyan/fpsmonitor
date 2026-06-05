@@ -11,8 +11,8 @@
   - [x] 2.3 在 `updateHardwareData()` 中集成 governor 读取，更新 HardwareData
 
 - [x] Task 3: 扩展 FpsMonitor，暴露历史 FPS 数据供图表使用
-  - [x] 3.1 新增 `fpsHistory: StateFlow<List<FpsRecord>>` 保留最近 60 个 FPS 采样点
-  - [x] 3.2 在采样循环中填充 fpsHistory
+  - [x] 3.1 新增 `fpsChartData: StateFlow<List<FpsRecord>>` 保留最近 60 个 FPS 采样点
+  - [x] 3.2 在采样循环中填充 fpsChartData
 
 - [x] Task 4: 重写悬浮窗面板 UI（白色风格 + 完整布局）
   - [x] 4.1 去掉旧版简单 TextView 展开面板，改为白色面板布局
@@ -22,10 +22,10 @@
   - [x] 4.5 实现底部 CPU 频率曲线图（每条核心线不同颜色）
   - [x] 4.6 收起状态保持原有暗色风格 FPS 数字不变化
 
-- [ ] Task 5: 验证与修复编译问题
-  - [ ] 5.1 检查所有文件编译无错误
-  - [ ] 5.2 推送到 GitHub Actions 触发 CI 编译
-  - [ ] 5.3 确认 APK 构建成功且产物可下载
+- [x] Task 5: 验证与修复编译问题
+  - [x] 5.1 检查所有文件编译无错误
+  - [x] 5.2 推送到 GitHub Actions 触发 CI 编译
+  - [x] 5.3 确认 APK 构建成功且产物可下载
 
 # Task Dependencies
 - Task 2 依赖 Task 1（需要 CpuCoreInfo 数据类和 writeFile 方法）
