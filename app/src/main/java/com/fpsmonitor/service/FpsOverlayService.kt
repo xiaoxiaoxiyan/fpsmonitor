@@ -499,7 +499,11 @@ class FpsOverlayService : Service() {
                     return true
                 }
                 MotionEvent.ACTION_UP -> {
-                    return !isDragging
+                    if (isDragging) {
+                        return true // drag handled
+                    }
+                    // Not a drag — let the system trigger onClickListener
+                    return false
                 }
             }
             return false
