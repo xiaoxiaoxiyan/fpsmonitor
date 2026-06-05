@@ -180,7 +180,7 @@ class HardwareMonitor {
 
     /**
      * Read CPU temperature from thermal zones.
-     * Scans /sys/class/thermal/thermal_zone*/temp for CPU-related zones.
+     * Scans /sys/class/thermal/thermal_zoneX/temp for CPU-related zones.
      * Reference: Scene scans thermal zones for CPU temperature.
      */
     private suspend fun readCpuTemp(): Float {
