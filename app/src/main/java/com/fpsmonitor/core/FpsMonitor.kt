@@ -63,8 +63,8 @@ class FpsMonitor {
     private var isRecording = false
 
     // FPS history for chart display (recent 60 samples)
-    private val _fpsHistory = MutableStateFlow<List<FpsRecord>>(emptyList())
-    val fpsHistory: StateFlow<List<FpsRecord>> = _fpsHistory.asStateFlow()
+    private val _fpsChartData = MutableStateFlow<List<FpsRecord>>(emptyList())
+    val fpsChartData: StateFlow<List<FpsRecord>> = _fpsChartData.asStateFlow()
 
     private val scope = CoroutineScope(Dispatchers.Main + SupervisorJob())
 
@@ -193,10 +193,10 @@ class FpsMonitor {
         }
 
         // Update FPS history for chart (keep last 60 samples)
-        val history = _fpsHistory.value.toMutableList()
+        val history = _fpsChartData.value.toMutableList()
         history.add(FpsRecord(timestamp = now, fps = fps))
         if (history.size > 60) history.removeAt(0)
-        _fpsHistory.value = history
+        _fpsChartData.value = history
 
         // Reset for next interval
         frameCount = 0
