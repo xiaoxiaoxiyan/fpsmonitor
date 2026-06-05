@@ -165,6 +165,7 @@ class FpsMonitor {
         if (elapsedMs <= 0) return
 
         val fps = ((frameCount.toFloat() / elapsedMs) * 1000f).toInt()
+                .coerceAtMost(targetFps)
         val frameTimeMs = if (fps > 0) 1000f / fps else 0f
 
         // Update min/max
