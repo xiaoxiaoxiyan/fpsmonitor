@@ -37,6 +37,9 @@ class HardwareMonitor {
     private var prevCpuTotal = 0L
     private var prevCpuIdle = 0L
 
+    // Cached device info (read once)
+    private var cachedDeviceInfo: DeviceInfo? = null
+
     /**
      * Start hardware monitoring loop.
      */
@@ -71,6 +74,8 @@ class HardwareMonitor {
         val batteryTemp = readBatteryTemp()
         val batteryLevel = readBatteryLevel()
         val cpuTemp = readCpuTemp()
+        val gpuTemp = readGpuTemp()
+        val deviceInfo = readDeviceInfo()
 
         _hardwareData.value = HardwareData(
             cpuUsage = cpuUsage,
@@ -79,7 +84,9 @@ class HardwareMonitor {
             gpuUsage = gpuUsage,
             batteryTemp = batteryTemp,
             batteryLevel = batteryLevel,
-            cpuTemp = cpuTemp
+            cpuTemp = cpuTemp,
+            gpuTemp = gpuTemp,
+            deviceInfo = deviceInfo
         )
     }
 
@@ -291,5 +298,62 @@ class HardwareMonitor {
             }
         } catch (_: Exception) { }
         return 0f
+    }
+
+    /**
+     * Read GPU temperature from thermal zones.
+     * Scans /sys/class/thermal/thermal_zoneX/type for "gpu" type.
+     */
+    private suspend fun readGpuTemp(): Float {
+        try {
+            for (i in 0..20) {
+                val type = ShellExecutor.readFile("/sys/class/thermal/thermal_zone$i/type")
+                if (type.contains("gpu", ignoreCase = true)) {
+                    val temp = ShellExecutor.readFile("/sys/class/thermal/thermal_zone$i/temp")
+                    if (temp.isNotEmpty()) {
+                        return (temp.trim().toFloatOrNull() ?: 0f) / 1000f // Convert m°C to °C
+                    }
+                }
+            }
+        } catch (_: Exception) { }
+        return 0f
+    }
+
+    /**
+     * Read device information once and cache it.
+     * Uses getprop and /proc filesystem.
+     */
+    private suspend fun readDeviceInfo(): DeviceInfo {
+        cachedDeviceInfo?.let { return it }
+
+        try {
+            val model = ShellExecutor.execute("getprop ro.product.model").trim()
+            val manufacturer = ShellExecutor.execute("getprop ro.product.manufacturer").trim()
+            val cpuArch = ShellExecutor.execute("getprop ro.product.cpu.abi").trim()
+
+            val cpuInfo = ShellExecutor.readFile("/proc/cpuinfo")
+            val cpuHardware = cpuInfo.lines()
+                .firstOrNull { it.contains("Hardware") }
+                ?.substringAfter(":")
+                ?.trim() ?: ""
+
+            val memInfo = ShellExecutor.readFile("/proc/meminfo")
+            val totalRam = memInfo.lines()
+                .firstOrNull { it.startsWith("MemTotal") }
+                ?.substringAfter(":")
+                ?.trim()
+                ?: ""
+
+            cachedDeviceInfo = DeviceInfo(
+                model = model,
+                manufacturer = manufacturer,
+                cpuModel = cpuHardware,
+                cpuArch = cpuArch,
+                totalRam = totalRam
+            )
+        } catch (_: Exception) {
+            cachedDeviceInfo = DeviceInfo()
+        }
+        return cachedDeviceInfo!!
     }
 }

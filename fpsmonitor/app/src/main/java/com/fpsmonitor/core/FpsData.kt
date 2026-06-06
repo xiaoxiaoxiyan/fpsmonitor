@@ -34,7 +34,23 @@ data class HardwareData(
     val gpuUsage: Float = 0f,
     val batteryTemp: Float = 0f,
     val batteryLevel: Int = 0,
-    val cpuTemp: Float = 0f
+    val cpuTemp: Float = 0f,
+    val gpuTemp: Float = 0f,
+    val deviceInfo: DeviceInfo = DeviceInfo()
+)
+
+/**
+ * Device information collected once at startup.
+ */
+data class DeviceInfo(
+    val model: String = "",
+    val manufacturer: String = "",
+    val cpuModel: String = "",
+    val cpuArch: String = "",
+    val totalRam: String = "",
+    val screenResolution: String = "",
+    val screenRefreshRate: Float = 0f,
+    val coreCount: Int = 0
 )
 
 /**
