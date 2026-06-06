@@ -11,12 +11,23 @@ import kotlinx.coroutines.withContext
  */
 object ShellExecutor {
 
+    private var rootShell: Shell? = null
+
+    /**
+     * Get or create a root shell instance.
+     */
+    private fun getRootShell(): Shell {
+        return rootShell ?: Shell.Builder.create().setFlags(Shell.FLAG_REDIRECT_STDERR).build().also {
+            rootShell = it
+        }
+    }
+
     /**
      * Execute a shell command with root and return the output as a string.
      */
     suspend fun execute(command: String): String = withContext(Dispatchers.IO) {
         try {
-            val result = Shell.cmd(command).exec()
+            val result = getRootShell().newJob().add(command).exec()
             result.out.joinToString("\n").trim()
         } catch (e: Exception) {
             ""
@@ -36,7 +47,7 @@ object ShellExecutor {
     suspend fun executeAll(commands: List<String>): List<String> = withContext(Dispatchers.IO) {
         try {
             val cmd = commands.joinToString(" && ")
-            val result = Shell.cmd(cmd).exec()
+            val result = getRootShell().newJob().add(cmd).exec()
             result.out.map { it.trim() }
         } catch (e: Exception) {
             emptyList()
@@ -45,10 +56,11 @@ object ShellExecutor {
 
     /**
      * Write content to a file via root shell.
+     * Uses printf to avoid shell escaping issues.
      */
     suspend fun writeFile(path: String, content: String): Boolean = withContext(Dispatchers.IO) {
         try {
-            val result = Shell.cmd("echo '$content' > $path").exec()
+            val result = getRootShell().newJob().add("echo $content > $path").exec()
             result.isSuccess
         } catch (e: Exception) {
             false
