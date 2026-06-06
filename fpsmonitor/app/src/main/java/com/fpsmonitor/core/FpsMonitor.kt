@@ -213,4 +213,13 @@ class FpsMonitor {
         minFps = Int.MAX_VALUE
         maxFps = 0
     }
+
+    /**
+     * Apply settings from SettingsManager.
+     */
+    fun applySettings() {
+        targetFps = SettingsManager.targetFps
+        intervalMs = SettingsManager.sampleInterval
+        jankThreshold = SettingsManager.jankThreshold
+    }
 }

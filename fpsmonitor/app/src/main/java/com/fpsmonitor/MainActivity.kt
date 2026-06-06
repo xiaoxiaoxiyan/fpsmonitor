@@ -19,6 +19,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.fpsmonitor.core.RootChecker
+import com.fpsmonitor.core.SettingsManager
 import com.fpsmonitor.service.FpsOverlayService
 import com.fpsmonitor.ui.screen.HistoryScreen
 import com.fpsmonitor.ui.screen.MonitorScreen
@@ -29,6 +30,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        SettingsManager.init(this)
         setContent {
             MaterialTheme(
                 colorScheme = darkColorScheme(

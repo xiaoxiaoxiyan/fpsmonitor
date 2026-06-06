@@ -27,6 +27,7 @@ import com.fpsmonitor.core.FpsData
 import com.fpsmonitor.core.FpsMonitor
 import com.fpsmonitor.core.HardwareData
 import com.fpsmonitor.core.HardwareMonitor
+import com.fpsmonitor.core.SettingsManager
 import kotlinx.coroutines.*
 
 /**
@@ -72,6 +73,7 @@ class FpsOverlayService : Service() {
 
     override fun onCreate() {
         super.onCreate()
+        SettingsManager.init(this)
         createNotificationChannel()
         windowManager = getSystemService(Context.WINDOW_SERVICE) as WindowManager
     }
@@ -282,6 +284,7 @@ class FpsOverlayService : Service() {
     }
 
     private fun startMonitoring() {
+        fpsMonitor.applySettings()
         fpsMonitor.start()
         hardwareMonitor.start()
 
@@ -291,7 +294,7 @@ class FpsOverlayService : Service() {
             }
             launch {
                 fpsMonitor.fpsChartData.collect { history ->
-                    fpsChartView?.updateData(history)
+                    fpsChartView?.updateData(history, SettingsManager.targetFps)
                 }
             }
             launch {
@@ -499,11 +502,10 @@ class FpsOverlayService : Service() {
                     return true
                 }
                 MotionEvent.ACTION_UP -> {
-                    if (isDragging) {
-                        return true // drag handled
+                    if (!isDragging) {
+                        view.performClick() // trigger onClickListener
                     }
-                    // Not a drag — let the system trigger onClickListener
-                    return false
+                    return true
                 }
             }
             return false

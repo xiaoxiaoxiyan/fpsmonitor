@@ -11,13 +11,14 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.fpsmonitor.core.SettingsManager
 
 @Composable
 fun SettingsScreen() {
-    var sampleInterval by remember { mutableStateOf("250") }
-    var targetFps by remember { mutableStateOf("60") }
-    var jankThreshold by remember { mutableStateOf("1.5") }
-    var showOverlayOnStart by remember { mutableStateOf(true) }
+    var sampleInterval by remember { mutableStateOf(SettingsManager.sampleInterval.toString()) }
+    var targetFps by remember { mutableStateOf(SettingsManager.targetFps.toString()) }
+    var jankThreshold by remember { mutableStateOf(SettingsManager.jankThreshold.toString()) }
+    var showOverlayOnStart by remember { mutableStateOf(SettingsManager.showOverlayOnStart) }
 
     Column(
         modifier = Modifier
@@ -38,7 +39,10 @@ fun SettingsScreen() {
         SettingsCard("采样间隔 (ms)") {
             OutlinedTextField(
                 value = sampleInterval,
-                onValueChange = { sampleInterval = it },
+                onValueChange = {
+                    sampleInterval = it
+                    it.toLongOrNull()?.let { v -> SettingsManager.sampleInterval = v }
+                },
                 modifier = Modifier.fillMaxWidth(),
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedTextColor = Color.White,
@@ -61,7 +65,10 @@ fun SettingsScreen() {
         SettingsCard("目标帧率") {
             OutlinedTextField(
                 value = targetFps,
-                onValueChange = { targetFps = it },
+                onValueChange = {
+                    targetFps = it
+                    it.toIntOrNull()?.let { v -> SettingsManager.targetFps = v }
+                },
                 modifier = Modifier.fillMaxWidth(),
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedTextColor = Color.White,
@@ -72,7 +79,7 @@ fun SettingsScreen() {
                 singleLine = true
             )
             Text(
-                text = "用于掉帧检测基准，默认 60fps",
+                text = "用于掉帧检测基准和 FPS 上限，默认 60fps。120Hz 屏幕请设为 120",
                 color = Color.White.copy(alpha = 0.5f),
                 fontSize = 12.sp
             )
@@ -84,7 +91,10 @@ fun SettingsScreen() {
         SettingsCard("掉帧阈值 (倍数)") {
             OutlinedTextField(
                 value = jankThreshold,
-                onValueChange = { jankThreshold = it },
+                onValueChange = {
+                    jankThreshold = it
+                    it.toFloatOrNull()?.let { v -> SettingsManager.jankThreshold = v }
+                },
                 modifier = Modifier.fillMaxWidth(),
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedTextColor = Color.White,
@@ -116,7 +126,10 @@ fun SettingsScreen() {
                 )
                 Switch(
                     checked = showOverlayOnStart,
-                    onCheckedChange = { showOverlayOnStart = it },
+                    onCheckedChange = {
+                        showOverlayOnStart = it
+                        SettingsManager.showOverlayOnStart = it
+                    },
                     colors = SwitchDefaults.colors(
                         checkedThumbColor = Color(0xFF4CAF50),
                         checkedTrackColor = Color(0xFF4CAF50).copy(alpha = 0.5f)
@@ -130,7 +143,7 @@ fun SettingsScreen() {
         // About section
         SettingsCard("关于") {
             Text(
-                text = "FPS Monitor v1.0",
+                text = "FPS Monitor v1.1",
                 color = Color.White,
                 fontWeight = FontWeight.Bold
             )
