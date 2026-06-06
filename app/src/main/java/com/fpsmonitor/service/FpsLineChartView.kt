@@ -11,7 +11,7 @@ import com.fpsmonitor.core.FpsRecord
 
 /**
  * FpsLineChartView - Custom View that draws a real-time FPS line chart.
- * Blue line for FPS, gray dashed line for target FPS reference.
+ * Teal line for FPS, gray dashed line for target FPS reference.
  */
 class FpsLineChartView(context: Context) : View(context) {
 
@@ -19,7 +19,7 @@ class FpsLineChartView(context: Context) : View(context) {
     private var targetFps = 60
 
     private val linePaint = Paint().apply {
-        color = Color.parseColor("#2196F3")
+        color = Color.parseColor("#00897B")
         strokeWidth = 3f
         style = Paint.Style.STROKE
         isAntiAlias = true
@@ -28,7 +28,7 @@ class FpsLineChartView(context: Context) : View(context) {
     }
 
     private val targetLinePaint = Paint().apply {
-        color = Color.parseColor("#CCCCCC")
+        color = Color.parseColor("#B0BEC5")
         strokeWidth = 1.5f
         style = Paint.Style.STROKE
         isAntiAlias = true
@@ -36,13 +36,13 @@ class FpsLineChartView(context: Context) : View(context) {
     }
 
     private val textPaint = Paint().apply {
-        color = Color.parseColor("#666666")
+        color = Color.parseColor("#607D8B")
         textSize = 22f
         isAntiAlias = true
     }
 
     private val bgPaint = Paint().apply {
-        color = Color.parseColor("#F8F8F8")
+        color = Color.parseColor("#F0F4F8")
         style = Paint.Style.FILL
         isAntiAlias = true
     }

@@ -21,6 +21,7 @@ import android.view.WindowManager
 import android.widget.*
 import androidx.core.app.NotificationCompat
 import com.fpsmonitor.MainActivity
+import com.fpsmonitor.core.CpuCoreInfo
 import com.fpsmonitor.core.FpsData
 import com.fpsmonitor.core.FpsMonitor
 import com.fpsmonitor.core.HardwareData
@@ -29,10 +30,9 @@ import com.fpsmonitor.core.SettingsManager
 import kotlinx.coroutines.*
 
 /**
- * FpsOverlayService - Dynamic Island style floating FPS monitor.
- * - Collapsed: pill-shaped frosted glass pill (Dynamic Island style)
- * - Expanded: glass morphic panel with FPS chart, CPU control, frequency setting
- * - Auto-adaptive positioning and screen ratio
+ * FpsOverlayService - Multi-tab floating overlay with Teal color scheme.
+ * - Collapsed: Dynamic Island style teal pill
+ * - Expanded: 4-tab panel (设备/图表/温度/控制)
  */
 class FpsOverlayService : Service() {
 
@@ -41,33 +41,64 @@ class FpsOverlayService : Service() {
         private const val NOTIFICATION_ID = 1
         const val FPS_GOOD = 50
         const val FPS_WARNING = 30
+        private const val MAX_HISTORY = 30
     }
+
+    // ── Color palette (Teal theme) ──
+    private val TEAL_600 = Color.parseColor("#00897B")
+    private val CYAN_600 = Color.parseColor("#00ACC1")
+    private val BG_LIGHT = Color.parseColor("#F0F4F8")
+    private val TEXT_SECONDARY = Color.parseColor("#607D8B")
+    private val TEXT_PRIMARY = Color.parseColor("#263238")
+    private val COLOR_AMBER = Color.parseColor("#FFA000")
+    private val COLOR_RED = Color.parseColor("#E53935")
 
     private lateinit var windowManager: WindowManager
     private var overlayView: View? = null
     private var layoutParams: WindowManager.LayoutParams? = null
     private var isExpanded = false
+    private var toggleInProgress = false
 
     private val fpsMonitor = FpsMonitor()
     private val hardwareMonitor = HardwareMonitor()
     private val scope = CoroutineScope(Dispatchers.Main + SupervisorJob())
 
-    // Collapsed
+    // ── Collapsed views ──
     private var collapsedLayout: LinearLayout? = null
     private var collapsedFpsText: TextView? = null
 
-    // Expanded
+    // ── Expanded views ──
     private var expandedLayout: LinearLayout? = null
-    private var statusFpsText: TextView? = null
-    private var statusCpuTempText: TextView? = null
-    private var statusBatTempText: TextView? = null
+    private var selectedTab = 1
+    private var tabIndicators: MutableList<View> = mutableListOf()
+    private var tabContentViews: MutableList<View> = mutableListOf()
+
+    // Tab 0 — Device info
+    private var deviceInfoContainer: LinearLayout? = null
+    private var deviceInfoPopulated = false
+
+    // Tab 1 — Charts
     private var fpsChartView: FpsLineChartView? = null
+    private var frameTimeChartView: FrameTimeChartView? = null
     private var cpuFreqChartView: CpuFreqChartView? = null
+
+    // Tab 2 — Temperature
+    private var tempCpuText: TextView? = null
+    private var tempGpuText: TextView? = null
+    private var tempBatText: TextView? = null
+    private var tempTrendChartView: TempTrendChartView? = null
+
+    // Tab 3 — Control
+    private var refreshRateText: TextView? = null
     private var cpuCoreContainer: LinearLayout? = null
     private var cpuCoreViews: MutableList<LinearLayout> = mutableListOf()
 
+    // ── History buffers ──
     private val cpuFreqHistory = mutableListOf<List<Long>>()
-    private val MAX_CPU_HISTORY = 30
+    private val frameTimeHistory = mutableListOf<Float>()
+    private val cpuTempHistory = mutableListOf<Float>()
+
+    // ── Lifecycle ──
 
     override fun onCreate() {
         super.onCreate()
@@ -92,6 +123,8 @@ class FpsOverlayService : Service() {
         scope.cancel()
         super.onDestroy()
     }
+
+    // ── Notification ──
 
     private fun createNotificationChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -119,6 +152,8 @@ class FpsOverlayService : Service() {
             .build()
     }
 
+    // ── Overlay creation ──
+
     @SuppressLint("ClickableViewAccessibility")
     private fun createOverlayView() {
         val container = LinearLayout(this).apply {
@@ -126,12 +161,12 @@ class FpsOverlayService : Service() {
             gravity = Gravity.CENTER
         }
 
-        // --- Collapsed: Dynamic Island pill ---
+        // --- Collapsed: Teal Dynamic Island pill ---
         collapsedLayout = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER
             setPadding(28, 12, 28, 12)
-            background = createGlassPillBackground(0.85f)
+            background = createCollapsedPillBackground()
         }
 
         collapsedFpsText = TextView(this).apply {
@@ -144,65 +179,37 @@ class FpsOverlayService : Service() {
         collapsedLayout!!.addView(collapsedFpsText)
         container.addView(collapsedLayout)
 
-        // --- Expanded: Glass morphic panel ---
+        // --- Expanded: White panel with tabs ---
         expandedLayout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             visibility = View.GONE
             setPadding(14, 10, 14, 10)
-            background = createGlassPanelBackground()
+            background = createExpandedPanelBackground()
         }
 
-        // Top status bar
-        val statusBar = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
-            setPadding(4, 0, 4, 6)
-        }
+        // Tab bar
+        expandedLayout!!.addView(createTabBar())
 
-        statusFpsText = createStatusLabel("60", 16f, Color.rgb(76, 175, 80), 0)
-        statusBar.addView(statusFpsText)
-        statusBar.addView(createSepDots())
-
-        statusCpuTempText = createStatusLabel("42°C", 12f, Color.DKGRAY, 0)
-        statusBar.addView(statusCpuTempText)
-        statusBar.addView(createSepDots())
-
-        statusBatTempText = createStatusLabel("35°C", 12f, Color.DKGRAY, 0)
-        statusBar.addView(statusBatTempText)
-        expandedLayout!!.addView(statusBar)
-
-        // FPS Chart
-        fpsChartView = FpsLineChartView(this).apply {
+        // Tab content frame
+        val contentFrame = FrameLayout(this).apply {
             layoutParams = LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, 240
-            ).apply { bottomMargin = 6 }
-        }
-        expandedLayout!!.addView(fpsChartView)
-
-        // CPU core controls (scrollable row)
-        val coreScroll = ScrollView(this).apply {
-            layoutParams = LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, 180
-            ).apply { bottomMargin = 6 }
-        }
-        cpuCoreContainer = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(4, 0, 4, 0)
-        }
-        coreScroll.addView(cpuCoreContainer)
-        expandedLayout!!.addView(coreScroll)
-
-        // CPU freq chart
-        cpuFreqChartView = CpuFreqChartView(this).apply {
-            layoutParams = LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, 160
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
             )
         }
-        expandedLayout!!.addView(cpuFreqChartView)
 
+        contentFrame.addView(createDeviceInfoTab())
+        contentFrame.addView(createChartsTab())
+        contentFrame.addView(createTemperatureTab())
+        contentFrame.addView(createControlTab())
+
+        // Apply initial tab selection
+        selectTab(selectedTab)
+
+        expandedLayout!!.addView(contentFrame)
         container.addView(expandedLayout)
 
-        // Window params — center-top like Dynamic Island
+        // Window params
         val type = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
         } else {
@@ -230,49 +237,371 @@ class FpsOverlayService : Service() {
         windowManager.addView(overlayView, layoutParams)
     }
 
-    // ── Glass morphic backgrounds ──
+    // ── Tab bar ──
 
-    /** Collapsed pill: dark frosted glass */
-    private fun createGlassPillBackground(opacity: Float): GradientDrawable {
+    private fun createTabBar(): LinearLayout {
+        val tabBar = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER
+            setPadding(0, 0, 0, 6)
+        }
+
+        val tabNames = listOf("设备", "图表", "温度", "控制")
+        tabIndicators.clear()
+
+        for (i in tabNames.indices) {
+            val tabItem = LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL
+                gravity = Gravity.CENTER
+                layoutParams = LinearLayout.LayoutParams(
+                    0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f
+                )
+            }
+
+            val tabLabel = TextView(this).apply {
+                text = tabNames[i]
+                textSize = 13f
+                setTextColor(TEXT_SECONDARY)
+                gravity = Gravity.CENTER
+                setPadding(8, 4, 8, 4)
+                typeface = android.graphics.Typeface.DEFAULT_BOLD
+            }
+
+            val indicator = View(this).apply {
+                layoutParams = LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT, 3
+                )
+                setBackgroundColor(if (i == selectedTab) TEAL_600 else Color.TRANSPARENT)
+            }
+
+            tabItem.addView(tabLabel)
+            tabItem.addView(indicator)
+            tabIndicators.add(indicator)
+
+            val idx = i
+            tabItem.setOnClickListener { selectTab(idx) }
+
+            tabBar.addView(tabItem)
+        }
+
+        return tabBar
+    }
+
+    private fun selectTab(index: Int) {
+        if (index < 0 || index >= tabContentViews.size) return
+        selectedTab = index
+
+        for (i in tabContentViews.indices) {
+            tabContentViews[i].visibility = if (i == index) View.VISIBLE else View.GONE
+        }
+
+        for (i in tabIndicators.indices) {
+            tabIndicators[i].setBackgroundColor(if (i == index) TEAL_600 else Color.TRANSPARENT)
+        }
+
+        // Update tab label colors
+        val tabBar = tabIndicators.firstOrNull()?.parent?.parent as? LinearLayout
+        tabBar?.let { bar ->
+            for (i in 0 until bar.childCount) {
+                val item = bar.getChildAt(i) as? LinearLayout ?: continue
+                val label = item.getChildAt(0) as? TextView ?: continue
+                label.setTextColor(if (i == index) TEAL_600 else TEXT_SECONDARY)
+            }
+        }
+    }
+
+    // ── Tab 0: Device info ──
+
+    private fun createDeviceInfoTab(): View {
+        deviceInfoContainer = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            visibility = View.GONE
+            setPadding(4, 4, 4, 4)
+            background = GradientDrawable().apply {
+                setColor(Color.WHITE)
+                cornerRadius = 12f
+                setStroke(1.dpToPx(), Color.parseColor("#E0E8ED"))
+            }
+        }
+
+        // Header
+        val header = TextView(this).apply {
+            text = "设备信息"
+            textSize = 14f
+            setTextColor(TEAL_600)
+            typeface = android.graphics.Typeface.DEFAULT_BOLD
+            setPadding(12, 10, 12, 8)
+            background = GradientDrawable().apply {
+                setColor(Color.TRANSPARENT)
+            }
+        }
+        deviceInfoContainer!!.addView(header)
+
+        // Separator
+        deviceInfoContainer!!.addView(View(this).apply {
+            layoutParams = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, 1
+            )
+            setBackgroundColor(Color.parseColor("#E0E8ED"))
+        })
+
+        tabContentViews.add(deviceInfoContainer!!)
+        return deviceInfoContainer!!
+    }
+
+    private fun populateDeviceInfo() {
+        if (deviceInfoPopulated) return
+        deviceInfoPopulated = true
+        val container = deviceInfoContainer ?: return
+
+        val lastData = hardwareMonitor.hardwareData.value
+        val di = lastData.deviceInfo
+
+        // Supplement with Android API data
+        val metrics = resources.displayMetrics
+        val resolution = "${metrics.widthPixels}x${metrics.heightPixels}"
+        val refreshRate = windowManager.defaultDisplay?.refreshRate ?: 0f
+        val coreCount = Runtime.getRuntime().availableProcessors()
+
+        val items = listOf(
+            "设备型号" to di.model,
+            "制造商" to di.manufacturer,
+            "CPU 型号" to di.cpuModel,
+            "CPU 架构" to di.cpuArch,
+            "核心数" to "$coreCount",
+            "总内存" to di.totalRam,
+            "屏幕分辨率" to resolution,
+            "屏幕刷新率" to "${refreshRate.toInt()} Hz"
+        )
+
+        for ((label, value) in items) {
+            val row = createDeviceInfoRow(label, value)
+            container.addView(row)
+        }
+    }
+
+    private fun createDeviceInfoRow(label: String, value: String): LinearLayout {
+        return LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            setPadding(12, 6, 12, 6)
+            gravity = Gravity.CENTER_VERTICAL
+
+            addView(TextView(this@FpsOverlayService).apply {
+                text = label
+                textSize = 12f
+                setTextColor(TEXT_SECONDARY)
+                layoutParams = LinearLayout.LayoutParams(
+                    0, ViewGroup.LayoutParams.WRAP_CONTENT, 0.4f
+                )
+            })
+
+            addView(TextView(this@FpsOverlayService).apply {
+                text = value.ifEmpty { "未知" }
+                textSize = 12f
+                setTextColor(TEXT_PRIMARY)
+                typeface = android.graphics.Typeface.DEFAULT_BOLD
+                layoutParams = LinearLayout.LayoutParams(
+                    0, ViewGroup.LayoutParams.WRAP_CONTENT, 0.6f
+                )
+            })
+        }
+    }
+
+    // ── Tab 1: Charts ──
+
+    private fun createChartsTab(): View {
+        val scrollView = ScrollView(this).apply {
+            visibility = View.GONE
+        }
+
+        val chartContainer = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(4, 4, 4, 4)
+        }
+
+        fpsChartView = FpsLineChartView(this).apply {
+            layoutParams = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, 250.dpToPx()
+            ).apply { bottomMargin = 6.dpToPx() }
+        }
+        chartContainer.addView(fpsChartView)
+
+        frameTimeChartView = FrameTimeChartView(this).apply {
+            layoutParams = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, 200.dpToPx()
+            ).apply { bottomMargin = 6.dpToPx() }
+        }
+        chartContainer.addView(frameTimeChartView)
+
+        cpuFreqChartView = CpuFreqChartView(this).apply {
+            layoutParams = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, 160.dpToPx()
+            )
+        }
+        chartContainer.addView(cpuFreqChartView)
+
+        scrollView.addView(chartContainer)
+        tabContentViews.add(scrollView)
+        return scrollView
+    }
+
+    // ── Tab 2: Temperature ──
+
+    private fun createTemperatureTab(): View {
+        val tempLayout = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            visibility = View.GONE
+            setPadding(4, 4, 4, 4)
+            background = GradientDrawable().apply {
+                setColor(Color.WHITE)
+                cornerRadius = 12f
+                setStroke(1.dpToPx(), Color.parseColor("#E0E8ED"))
+            }
+        }
+
+        // CPU temp big display
+        tempCpuText = TextView(this).apply {
+            text = "0°C"
+            textSize = 40f
+            setTextColor(TEAL_600)
+            typeface = android.graphics.Typeface.DEFAULT_BOLD
+            gravity = Gravity.CENTER
+            setPadding(12, 8, 12, 4)
+        }
+        tempLayout.addView(tempCpuText)
+
+        val cpuLabel = TextView(this).apply {
+            text = "CPU 温度"
+            textSize = 12f
+            setTextColor(TEXT_SECONDARY)
+            gravity = Gravity.CENTER
+            setPadding(12, 0, 12, 8)
+        }
+        tempLayout.addView(cpuLabel)
+
+        // Separator
+        tempLayout.addView(View(this).apply {
+            layoutParams = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, 1
+            )
+            setBackgroundColor(Color.parseColor("#E0E8ED"))
+        })
+
+        // GPU temp
+        val gpuRow = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            setPadding(12, 6, 12, 2)
+            gravity = Gravity.CENTER_VERTICAL
+        }
+        gpuRow.addView(TextView(this).apply {
+            text = "GPU: "
+            textSize = 12f
+            setTextColor(TEXT_SECONDARY)
+        })
+        tempGpuText = TextView(this).apply {
+            text = "--"
+            textSize = 18f
+            setTextColor(TEAL_600)
+            typeface = android.graphics.Typeface.DEFAULT_BOLD
+        }
+        gpuRow.addView(tempGpuText)
+        tempLayout.addView(gpuRow)
+
+        // Battery temp
+        val batRow = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            setPadding(12, 2, 12, 6)
+            gravity = Gravity.CENTER_VERTICAL
+        }
+        batRow.addView(TextView(this).apply {
+            text = "电池: "
+            textSize = 12f
+            setTextColor(TEXT_SECONDARY)
+        })
+        tempBatText = TextView(this).apply {
+            text = "--"
+            textSize = 18f
+            setTextColor(TEAL_600)
+            typeface = android.graphics.Typeface.DEFAULT_BOLD
+        }
+        batRow.addView(tempBatText)
+        tempLayout.addView(batRow)
+
+        // Temp trend chart
+        tempTrendChartView = TempTrendChartView(this).apply {
+            layoutParams = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, 160.dpToPx()
+            ).apply { topMargin = 4.dpToPx() }
+        }
+        tempLayout.addView(tempTrendChartView)
+
+        tabContentViews.add(tempLayout)
+        return tempLayout
+    }
+
+    // ── Tab 3: Control ──
+
+    private fun createControlTab(): View {
+        val controlLayout = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            visibility = View.GONE
+            setPadding(4, 4, 4, 4)
+        }
+
+        // Refresh rate display
+        refreshRateText = TextView(this).apply {
+            text = "60 Hz"
+            textSize = 24f
+            setTextColor(TEAL_600)
+            typeface = android.graphics.Typeface.DEFAULT_BOLD
+            gravity = Gravity.CENTER
+            setPadding(12, 8, 12, 8)
+            background = GradientDrawable().apply {
+                setColor(Color.WHITE)
+                cornerRadius = 12f
+                setStroke(1.dpToPx(), Color.parseColor("#E0E8ED"))
+            }
+        }
+        controlLayout.addView(refreshRateText)
+
+        // CPU core controls (scrollable)
+        val coreScroll = ScrollView(this).apply {
+            layoutParams = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f
+            ).apply { topMargin = 6.dpToPx() }
+        }
+        cpuCoreContainer = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(4, 0, 4, 0)
+        }
+        coreScroll.addView(cpuCoreContainer)
+        controlLayout.addView(coreScroll)
+
+        tabContentViews.add(controlLayout)
+        return controlLayout
+    }
+
+    // ── Backgrounds ──
+
+    private fun createCollapsedPillBackground(): GradientDrawable {
         return GradientDrawable().apply {
             shape = GradientDrawable.RECTANGLE
             cornerRadius = 48f
-            setColor(Color.argb((255 * opacity).toInt(), 20, 20, 22))
+            setColor(Color.argb(200, 0, 137, 123))
             setStroke(1.dpToPx(), Color.argb(60, 255, 255, 255))
         }
     }
 
-    /** Expanded panel: light glass morphic */
-    private fun createGlassPanelBackground(): GradientDrawable {
+    private fun createExpandedPanelBackground(): GradientDrawable {
         return GradientDrawable().apply {
             shape = GradientDrawable.RECTANGLE
             cornerRadius = 20f
-            setColor(Color.argb(225, 245, 247, 250))
-            setStroke(1.dpToPx(), Color.argb(40, 180, 180, 190))
-        }
-    }
-
-    private fun createStatusLabel(text: String, size: Float, color: Int, padDp: Int): TextView {
-        return TextView(this).apply {
-            this.text = text
-            textSize = size
-            setTextColor(color)
-            setPadding(padDp, 0, padDp, 0)
-            typeface = android.graphics.Typeface.DEFAULT_BOLD
-        }
-    }
-
-    private fun createSepDots(): TextView {
-        return TextView(this).apply {
-            text = " · "
-            textSize = 12f
-            setTextColor(Color.parseColor("#B0B0B0"))
+            setColor(Color.WHITE)
+            setStroke(1.dpToPx(), Color.parseColor("#D0D8E0"))
         }
     }
 
     // ── Expand / Collapse ──
-
-    private var toggleInProgress = false
 
     private fun toggleExpanded() {
         if (toggleInProgress) return
@@ -317,46 +646,83 @@ class FpsOverlayService : Service() {
     private fun updateFpsDisplay(data: FpsData) {
         val fps = data.fps
         val color = when {
-            fps >= FPS_GOOD -> Color.rgb(76, 175, 80)
-            fps >= FPS_WARNING -> Color.rgb(255, 152, 0)
-            else -> Color.rgb(244, 67, 54)
+            fps >= FPS_GOOD -> TEAL_600
+            fps >= FPS_WARNING -> COLOR_AMBER
+            else -> COLOR_RED
         }
-        collapsedFpsText?.apply { text = "$fps"; setTextColor(color) }
-        statusFpsText?.apply { text = "$fps"; setTextColor(color) }
+        collapsedFpsText?.apply { text = "$fps"; setTextColor(Color.WHITE) }
+
+        // Track frame time history for chart
+        if (data.frameTimeMs > 0f) {
+            frameTimeHistory.add(data.frameTimeMs)
+            if (frameTimeHistory.size > MAX_HISTORY) frameTimeHistory.removeAt(0)
+            frameTimeChartView?.updateData(frameTimeHistory.toList())
+        }
     }
 
     private fun updateHardwareDisplay(data: HardwareData) {
         if (!isExpanded) return
 
-        val cpuTemp = data.cpuTemp
-        statusCpuTempText?.apply {
-            text = "${cpuTemp.toInt()}°C"
-            setTextColor(when {
-                cpuTemp < 40f -> Color.rgb(76, 175, 80)
-                cpuTemp < 60f -> Color.rgb(255, 152, 0)
-                else -> Color.rgb(244, 67, 54)
-            })
-        }
-        statusBatTempText?.apply {
-            val bt = data.batteryTemp
-            text = "${bt.toInt()}°C"
-            setTextColor(when {
-                bt < 35f -> Color.rgb(76, 175, 80)
-                bt < 45f -> Color.rgb(255, 152, 0)
-                else -> Color.rgb(244, 67, 54)
-            })
+        // Populate device info once
+        if (selectedTab == 0 && !deviceInfoPopulated) {
+            populateDeviceInfo()
         }
 
-        updateCpuCoreControls(data)
+        // Track CPU temp history
+        cpuTempHistory.add(data.cpuTemp)
+        if (cpuTempHistory.size > MAX_HISTORY) cpuTempHistory.removeAt(0)
 
+        when (selectedTab) {
+            2 -> {
+                updateTemperatureDisplay(data)
+                tempTrendChartView?.updateData(cpuTempHistory.toList())
+            }
+            3 -> updateCpuCoreControls(data)
+        }
+
+        // Always update CPU freq chart
         if (data.cpuFreqs.isNotEmpty()) {
             cpuFreqHistory.add(data.cpuFreqs)
-            if (cpuFreqHistory.size > MAX_CPU_HISTORY) cpuFreqHistory.removeAt(0)
+            if (cpuFreqHistory.size > MAX_HISTORY) cpuFreqHistory.removeAt(0)
             cpuFreqChartView?.updateData(cpuFreqHistory.toList(), data.cpuFreqs.size)
         }
     }
 
-    // ── CPU core controls with governor + frequency ──
+    private fun updateTemperatureDisplay(data: HardwareData) {
+        // CPU temp
+        val cpuTemp = data.cpuTemp
+        tempCpuText?.apply {
+            text = "${cpuTemp.toInt()}°C"
+            setTextColor(getTempColor(cpuTemp))
+        }
+
+        // GPU temp
+        val gpuTemp = data.gpuTemp
+        tempGpuText?.apply {
+            text = if (gpuTemp > 0f) "${gpuTemp.toInt()}°C" else "--"
+            setTextColor(getTempColor(gpuTemp))
+        }
+
+        // Battery temp
+        val batTemp = data.batteryTemp
+        tempBatText?.apply {
+            text = "${batTemp.toInt()}°C"
+            setTextColor(getTempColor(batTemp))
+        }
+
+        // Refresh rate
+        val rr = windowManager.defaultDisplay?.refreshRate ?: 0f
+        refreshRateText?.text = "${rr.toInt()} Hz"
+    }
+
+    private fun getTempColor(temp: Float): Int = when {
+        temp <= 0f -> TEAL_600
+        temp < 40f -> TEAL_600
+        temp <= 60f -> COLOR_AMBER
+        else -> COLOR_RED
+    }
+
+    // ── CPU core controls ──
 
     private fun updateCpuCoreControls(data: HardwareData) {
         val container = cpuCoreContainer ?: return
@@ -366,7 +732,7 @@ class FpsOverlayService : Service() {
         cpuCoreViews.clear()
 
         val list = if (cores.isNotEmpty()) cores
-        else data.cpuFreqs.mapIndexed { i, f -> com.fpsmonitor.core.CpuCoreInfo(i, f, "", emptyList()) }
+        else data.cpuFreqs.mapIndexed { i, f -> CpuCoreInfo(i, f, "", emptyList()) }
 
         for (core in list) {
             val row = createCoreRow(core)
@@ -376,7 +742,7 @@ class FpsOverlayService : Service() {
     }
 
     @SuppressLint("SetTextI18n")
-    private fun createCoreRow(core: com.fpsmonitor.core.CpuCoreInfo): LinearLayout {
+    private fun createCoreRow(core: CpuCoreInfo): LinearLayout {
         val row = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             setPadding(6, 3, 6, 3)
@@ -389,11 +755,10 @@ class FpsOverlayService : Service() {
             (layoutParams as? LinearLayout.LayoutParams)?.setMargins(0, 0, 0, 3)
         }
 
-        // Core ID + freq
         val infoText = TextView(this).apply {
             text = "C${core.coreId}"
             textSize = 11f
-            setTextColor(Color.DKGRAY)
+            setTextColor(TEXT_PRIMARY)
             setPadding(0, 0, 6, 0)
         }
         row.addView(infoText)
@@ -406,14 +771,14 @@ class FpsOverlayService : Service() {
         }
         row.addView(freqText)
 
-        // Governor button
+        // Governor button (Teal style)
         val govBtn = TextView(this).apply {
             text = if (core.governor.isNotEmpty()) core.governor else "--"
             textSize = 10f
-            setPadding(6, 2, 6, 2)
+            setPadding(8, 3, 8, 3)
             setTextColor(Color.WHITE)
             background = GradientDrawable().apply {
-                setColor(Color.parseColor("#78909C"))
+                setColor(TEAL_600)
                 cornerRadius = 10f
             }
             if (core.availableGovernors.isNotEmpty()) {
@@ -422,12 +787,12 @@ class FpsOverlayService : Service() {
         }
         row.addView(govBtn)
 
-        // Frequency input
+        // Custom frequency button (gear)
         val freqBtn = TextView(this).apply {
-            text = "⚙"
-            textSize = 12f
-            setPadding(6, 2, 6, 2)
-            setTextColor(Color.parseColor("#455A64"))
+            text = "\u2699"
+            textSize = 14f
+            setPadding(8, 3, 8, 3)
+            setTextColor(TEXT_SECONDARY)
             setOnClickListener { showFreqInputPopup(core.coreId) }
         }
         row.addView(freqBtn)
@@ -435,7 +800,7 @@ class FpsOverlayService : Service() {
         return row
     }
 
-    // ── Governor popup (PopupWindow, safe in Service) ──
+    // ── Governor popup ──
 
     private fun showGovernorPopup(coreId: Int, governors: List<String>, anchor: View) {
         try {
@@ -445,7 +810,7 @@ class FpsOverlayService : Service() {
                     override fun getView(pos: Int, v: View?, parent: ViewGroup): View {
                         val tv = super.getView(pos, v, parent) as TextView
                         tv.setPadding(24, 16, 24, 16)
-                        tv.setTextColor(Color.DKGRAY)
+                        tv.setTextColor(TEXT_PRIMARY)
                         return tv
                     }
                 }
@@ -473,9 +838,7 @@ class FpsOverlayService : Service() {
             }
 
             popup.showAsDropDown(anchor, 0, -260)
-        } catch (e: Exception) {
-            // PopupWindow may fail on some devices; silently ignore
-        }
+        } catch (_: Exception) { }
     }
 
     // ── Frequency input popup ──
@@ -484,7 +847,7 @@ class FpsOverlayService : Service() {
         try {
             val editText = EditText(this).apply {
                 hint = "输入MHz (如 1800)"
-                setTextColor(Color.DKGRAY)
+                setTextColor(TEXT_PRIMARY)
                 setHintTextColor(Color.GRAY)
                 setPadding(24, 16, 24, 16)
                 inputType = android.text.InputType.TYPE_CLASS_NUMBER
@@ -517,7 +880,6 @@ class FpsOverlayService : Service() {
                 } else false
             }
 
-            // Find the container view to show near
             val container = cpuCoreContainer
             if (container != null && container.childCount > 0) {
                 popup.showAtLocation(container, Gravity.CENTER, 0, 0)
