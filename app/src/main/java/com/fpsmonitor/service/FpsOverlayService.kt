@@ -8,6 +8,7 @@ import android.app.PendingIntent
 import android.app.Service
 import android.content.Context
 import android.content.Intent
+import android.content.res.Configuration
 import android.graphics.Color
 import android.graphics.PixelFormat
 import android.graphics.drawable.GradientDrawable
@@ -133,6 +134,13 @@ class FpsOverlayService : Service() {
         removeOverlayView()
         scope.cancel()
         super.onDestroy()
+    }
+
+    override fun onConfigurationChanged(newConfig: Configuration) {
+        super.onConfigurationChanged(newConfig)
+        // Re-apply the overlay view position after screen rotation
+        removeOverlayView()
+        createOverlayView()
     }
 
     // ── Notification ──
@@ -379,6 +387,7 @@ class FpsOverlayService : Service() {
             type,
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
                     WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
+                    WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
                     WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
             PixelFormat.TRANSLUCENT
         ).apply {
@@ -859,7 +868,7 @@ class FpsOverlayService : Service() {
                 MotionEvent.ACTION_MOVE -> {
                     val dx = event.rawX - initialTouchX
                     val dy = event.rawY - initialTouchY
-                    if (Math.abs(dx) > 8f || Math.abs(dy) > 8f) {
+                    if (!isDragging && (Math.abs(dx) > 10f || Math.abs(dy) > 10f)) {
                         isDragging = true
                         moved = true
                     }
@@ -871,14 +880,18 @@ class FpsOverlayService : Service() {
                         try {
                             overlayView?.let { windowManager.updateViewLayout(it, layoutParams) }
                         } catch (_: Exception) { }
+                        return true
                     }
-                    return true
+                    return false
                 }
                 MotionEvent.ACTION_UP -> {
                     if (!moved) {
                         view.performClick()
                     }
-                    return true
+                    if (isDragging) {
+                        return true
+                    }
+                    return false
                 }
             }
             return false
