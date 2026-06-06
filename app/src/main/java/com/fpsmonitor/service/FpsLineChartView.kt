@@ -19,7 +19,7 @@ class FpsLineChartView(context: Context) : View(context) {
     private var targetFps = 60
 
     private val linePaint = Paint().apply {
-        color = Color.parseColor("#00897B")
+        color = Color.parseColor("#1A1A1A")
         strokeWidth = 3f
         style = Paint.Style.STROKE
         isAntiAlias = true
@@ -28,7 +28,7 @@ class FpsLineChartView(context: Context) : View(context) {
     }
 
     private val targetLinePaint = Paint().apply {
-        color = Color.parseColor("#B0BEC5")
+        color = Color.parseColor("#CCCCCC")
         strokeWidth = 1.5f
         style = Paint.Style.STROKE
         isAntiAlias = true
@@ -36,13 +36,13 @@ class FpsLineChartView(context: Context) : View(context) {
     }
 
     private val textPaint = Paint().apply {
-        color = Color.parseColor("#607D8B")
+        color = Color.parseColor("#888888")
         textSize = 22f
         isAntiAlias = true
     }
 
     private val bgPaint = Paint().apply {
-        color = Color.parseColor("#F0F4F8")
+        color = Color.parseColor("#F5F5F5")
         style = Paint.Style.FILL
         isAntiAlias = true
     }

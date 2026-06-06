@@ -14,6 +14,10 @@ object SettingsManager {
     private const val KEY_TARGET_FPS = "target_fps"
     private const val KEY_JANK_THRESHOLD = "jank_threshold"
     private const val KEY_SHOW_OVERLAY_ON_START = "show_overlay_on_start"
+    private const val KEY_COLLAPSED_BG_COLOR = "collapsed_bg_color"
+    private const val KEY_FPS_TEXT_COLOR = "fps_text_color"
+    private const val KEY_CHART_LINE_COLOR = "chart_line_color"
+    private const val KEY_PANEL_BG_COLOR = "panel_bg_color"
 
     private var prefs: SharedPreferences? = null
 
@@ -49,5 +53,29 @@ object SettingsManager {
         get() = requirePrefs().getBoolean(KEY_SHOW_OVERLAY_ON_START, true)
         set(value) {
             requirePrefs().edit().putBoolean(KEY_SHOW_OVERLAY_ON_START, value).apply()
+        }
+
+    var collapsedBgColor: String
+        get() = requirePrefs().getString(KEY_COLLAPSED_BG_COLOR, "#1A1A1A") ?: "#1A1A1A"
+        set(value) {
+            requirePrefs().edit().putString(KEY_COLLAPSED_BG_COLOR, value).apply()
+        }
+
+    var fpsTextColor: String
+        get() = requirePrefs().getString(KEY_FPS_TEXT_COLOR, "#1A1A1A") ?: "#1A1A1A"
+        set(value) {
+            requirePrefs().edit().putString(KEY_FPS_TEXT_COLOR, value).apply()
+        }
+
+    var chartLineColor: String
+        get() = requirePrefs().getString(KEY_CHART_LINE_COLOR, "#1A1A1A") ?: "#1A1A1A"
+        set(value) {
+            requirePrefs().edit().putString(KEY_CHART_LINE_COLOR, value).apply()
+        }
+
+    var panelBgColor: String
+        get() = requirePrefs().getString(KEY_PANEL_BG_COLOR, "#FFFFFF") ?: "#FFFFFF"
+        set(value) {
+            requirePrefs().edit().putString(KEY_PANEL_BG_COLOR, value).apply()
         }
 }
