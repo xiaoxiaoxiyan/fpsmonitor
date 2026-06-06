@@ -159,6 +159,35 @@ class HardwareMonitor {
     }
 
     /**
+     * Set CPU min frequency for a specific core (in KHz).
+     * Only effective when governor is "userspace".
+     */
+    suspend fun setCpuMinFreq(coreIndex: Int, freqKhz: Long): Boolean {
+        val path = "/sys/devices/system/cpu/cpu$coreIndex/cpufreq/scaling_min_freq"
+        return ShellExecutor.writeFile(path, freqKhz.toString())
+    }
+
+    /**
+     * Set CPU max frequency for a specific core (in KHz).
+     * Only effective when governor is "userspace".
+     */
+    suspend fun setCpuMaxFreq(coreIndex: Int, freqKhz: Long): Boolean {
+        val path = "/sys/devices/system/cpu/cpu$coreIndex/cpufreq/scaling_max_freq"
+        return ShellExecutor.writeFile(path, freqKhz.toString())
+    }
+
+    /**
+     * Get available frequencies for a core.
+     */
+    suspend fun getAvailableFrequencies(coreIndex: Int): List<Long> {
+        val path = "/sys/devices/system/cpu/cpu$coreIndex/cpufreq/scaling_available_frequencies"
+        val value = ShellExecutor.readFile(path)
+        return if (value.isNotEmpty()) {
+            value.trim().split(" ").mapNotNull { it.toLongOrNull() }
+        } else emptyList()
+    }
+
+    /**
      * Calculate CPU usage from /proc/stat.
      * Reads total and idle ticks, computes delta from previous reading.
      * Reference: Standard Linux CPU usage calculation.
