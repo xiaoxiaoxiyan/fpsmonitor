@@ -15,6 +15,7 @@ import androidx.compose.ui.unit.sp
 import com.fpsmonitor.core.FpsMonitor
 import com.fpsmonitor.core.FpsRecorder
 import com.fpsmonitor.core.RecordingSession
+import com.fpsmonitor.core.SettingsManager
 import com.fpsmonitor.ui.chart.FpsChartView
 
 @Composable
@@ -130,6 +131,7 @@ fun MonitorScreen(
                         fpsMonitor.stop()
                         isLocalMonitoring = false
                     } else {
+                        fpsMonitor.applySettings()
                         fpsMonitor.start()
                         isLocalMonitoring = true
                     }
@@ -209,7 +211,7 @@ fun MonitorScreen(
                         StatItem("掉帧", "${lastSession!!.totalJanks}")
                     }
                     Spacer(modifier = Modifier.height(12.dp))
-                    FpsChartView(records = lastSession!!.records)
+                    FpsChartView(records = lastSession!!.records, targetFps = SettingsManager.targetFps)
                 }
             }
         }
