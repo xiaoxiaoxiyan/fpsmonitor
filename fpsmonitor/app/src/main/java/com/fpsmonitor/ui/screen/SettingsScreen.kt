@@ -1,12 +1,17 @@
 package com.fpsmonitor.ui.screen
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -19,6 +24,10 @@ fun SettingsScreen() {
     var targetFps by remember { mutableStateOf(SettingsManager.targetFps.toString()) }
     var jankThreshold by remember { mutableStateOf(SettingsManager.jankThreshold.toString()) }
     var showOverlayOnStart by remember { mutableStateOf(SettingsManager.showOverlayOnStart) }
+    var collapsedBgColor by remember { mutableStateOf(SettingsManager.collapsedBgColor) }
+    var fpsTextColor by remember { mutableStateOf(SettingsManager.fpsTextColor) }
+    var chartLineColor by remember { mutableStateOf(SettingsManager.chartLineColor) }
+    var panelBgColor by remember { mutableStateOf(SettingsManager.panelBgColor) }
 
     Column(
         modifier = Modifier
@@ -138,6 +147,61 @@ fun SettingsScreen() {
             }
         }
 
+        Spacer(modifier = Modifier.height(12.dp))
+
+        // Appearance colors
+        val presetColors = listOf(
+            "#1A1A1A", "#FFFFFF", "#888888", "#E53935", "#FFA000", "#4CAF50", "#2196F3"
+        )
+        val colorLabels = mapOf(
+            "collapsedBgColor" to "收起态背景色",
+            "fpsTextColor" to "FPS 文字颜色",
+            "chartLineColor" to "图表线颜色",
+            "panelBgColor" to "面板背景色"
+        )
+
+        SettingsCard("外观配色") {
+            ColorPickerRow(
+                label = colorLabels["collapsedBgColor"]!!,
+                currentColor = collapsedBgColor,
+                presetColors = presetColors,
+                onColorSelected = { color ->
+                    collapsedBgColor = color
+                    SettingsManager.collapsedBgColor = color
+                }
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+            ColorPickerRow(
+                label = colorLabels["fpsTextColor"]!!,
+                currentColor = fpsTextColor,
+                presetColors = presetColors,
+                onColorSelected = { color ->
+                    fpsTextColor = color
+                    SettingsManager.fpsTextColor = color
+                }
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+            ColorPickerRow(
+                label = colorLabels["chartLineColor"]!!,
+                currentColor = chartLineColor,
+                presetColors = presetColors,
+                onColorSelected = { color ->
+                    chartLineColor = color
+                    SettingsManager.chartLineColor = color
+                }
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+            ColorPickerRow(
+                label = colorLabels["panelBgColor"]!!,
+                currentColor = panelBgColor,
+                presetColors = presetColors,
+                onColorSelected = { color ->
+                    panelBgColor = color
+                    SettingsManager.panelBgColor = color
+                }
+            )
+        }
+
         Spacer(modifier = Modifier.height(24.dp))
 
         // About section
@@ -177,6 +241,58 @@ fun SettingsCard(
             )
             Spacer(modifier = Modifier.height(8.dp))
             content()
+        }
+    }
+}
+
+@Composable
+private fun ColorPickerRow(
+    label: String,
+    currentColor: String,
+    presetColors: List<String>,
+    onColorSelected: (String) -> Unit
+) {
+    Column {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = label,
+                color = Color.White,
+                fontSize = 13.sp,
+                modifier = Modifier.width(90.dp)
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            // Current color preview dot
+            Box(
+                modifier = Modifier
+                    .size(24.dp)
+                    .clip(CircleShape)
+                    .background(Color(android.graphics.Color.parseColor(currentColor)))
+                    .border(2.dp, Color.White.copy(alpha = 0.4f), CircleShape)
+            )
+            Spacer(modifier = Modifier.width(10.dp))
+            // Preset color dots
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                presetColors.forEach { colorHex ->
+                    Box(
+                        modifier = Modifier
+                            .size(24.dp)
+                            .clip(CircleShape)
+                            .background(Color(android.graphics.Color.parseColor(colorHex)))
+                            .border(
+                                width = if (currentColor == colorHex) 2.dp else 1.dp,
+                                color = if (currentColor == colorHex) Color(0xFF4CAF50)
+                                        else Color.White.copy(alpha = 0.3f),
+                                shape = CircleShape
+                            )
+                            .clickable { onColorSelected(colorHex) }
+                    )
+                }
+            }
         }
     }
 }

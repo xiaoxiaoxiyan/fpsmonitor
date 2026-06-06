@@ -15,19 +15,19 @@ class FrameTimeChartView(context: Context) : View(context) {
     private var frameTimes: List<Float> = emptyList()
 
     private val barPaint = Paint().apply {
-        color = Color.parseColor("#00ACC1")
+        color = Color.parseColor("#1A1A1A")
         style = Paint.Style.FILL
         isAntiAlias = true
     }
 
     private val textPaint = Paint().apply {
-        color = Color.parseColor("#607D8B")
+        color = Color.parseColor("#888888")
         textSize = 22f
         isAntiAlias = true
     }
 
     private val bgPaint = Paint().apply {
-        color = Color.parseColor("#F0F4F8")
+        color = Color.parseColor("#F5F5F5")
         style = Paint.Style.FILL
         isAntiAlias = true
     }
